@@ -1,6 +1,31 @@
-# self-driving-ai
+# Self driving car with Deep Q-learning
 This project explores making a model of a car self-driving. The model is controlled by a neural network which is trained with Q-learning. The environment for making custom tracks as well as collision detection is also built from scratch. Below is an example of the car driving on its own. The green lines are an illustration of how the car measures distance, which is used as features among a couple other parameters.
 
 https://user-images.githubusercontent.com/54723095/133101938-70f5e7c4-597d-4cdf-b1b6-45c97691ee1e.mp4
 
+## Neural network
+At the time being, the brain of the car is a simple fully connected neural network.
 
+### Features
+The neural network accepts seven features:
+1. Far-left distance
+2. Left-front distance
+3. Front distance
+4. Right-front distance
+5. Far-right distance
+6. Angle of wheels
+7. Speed
+
+All of the features are normalised to the interval 0 to 1. I try to make this normalisation a habit since it makes sense to me to have an interval where the weights of the neural network are likely to be initialised in the vicinity of. It may also generalise better, since I normalise by dividing with physical measures and thus make the parameters nondimensional. As such, it does not matter if the measures of the car and track were to be scaled up by some factor, the network still sees the same input. 
+
+### Output
+The network outputs Q-values for:
+1. Increasing the angle of the wheels relative to the car
+2. Decreasing the angle of the wheels relative to the car
+3. Increasing the speed of the car
+4. Decreasing the speed of the car
+
+By changing the angle of the wheels, the turning radius is changed as well. There is a smallest allowed turning radius, which decides the angular velocity of the car. The angular velocity is found as the quotient between the speed of the car and the signed turning radius. The turning radius is in turn found as the cotangent of the angle of the wheels, multiplied by the minimum turning radius.
+
+## Dependencies
+The neural network is designed with PyTorch (1.8.1+cu102). In addition, NumPy (1.18.5) is used for many operations and information storing. To remove a lot of computational burden, I have used Numba (0.51.2) for several movement handling operations, collision detections, as well as distance measuring etc.
