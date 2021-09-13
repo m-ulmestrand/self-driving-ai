@@ -16,7 +16,7 @@ The neural network accepts seven features:
 6. Angle of wheels
 7. Speed
 
-All of the features are normalised to the interval 0 to 1. I try to make this normalisation a habit since it makes sense to me to have an interval where the weights of the neural network are likely to be initialised in the vicinity of. It may also generalise better, since I normalise by dividing with physical measures and thus make the parameters nondimensional. As such, it does not matter if the measures of the car and track were to be scaled up by some factor, the network still sees the same input. 
+All of the features are normalised to the interval 0 to 1. I try to make this normalisation a habit since it makes sense to me to have an interval where the weights of the neural network are likely to be initialised in the vicinity of. It may also generalise better, since I normalise by dividing with physical measures and thus make the parameters nondimensional. As such, it does not matter if the measures of the car, track and speed were to be scaled up by some factor, the network still sees the same input. 
 
 ### Output
 The network outputs Q-values for:
