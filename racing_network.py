@@ -2,14 +2,10 @@ import torch
 from torch import nn
 from torch.nn import Linear
 from numpy import sqrt
+from init_cuda import init_cuda
 
 
-if torch.cuda.is_available():
-    print("CUDA available. Neural calculations run on GPU.")
-    device = torch.device("cuda:0")
-else:
-    print("CUDA unavailable. Neural calculations run on CPU.")
-    device = torch.device("cpu")
+init_cuda()
 
 
 class DenseNetwork(nn.Module):
