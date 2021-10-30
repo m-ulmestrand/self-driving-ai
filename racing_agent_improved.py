@@ -207,7 +207,8 @@ class RacingAgent:
         features[0, -1, -1] = np.sqrt(np.sum(self.velocity ** 2)) / self.max_speed
         
         if self.current_step != 0:
-            features[0, :-1] = self.old_states[self.current_step, 1:]
+            # features[0, :-1] = self.old_states[self.current_step, 1:]
+            pass
         else:
             for i in range(self.seq_length-1):
                 features[0, i] = features[0, -1]
