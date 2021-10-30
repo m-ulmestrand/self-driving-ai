@@ -5,7 +5,7 @@ from numpy import sqrt
 from init_cuda import init_cuda
 
 
-init_cuda()
+device = init_cuda()
 
 
 class DenseNetwork(nn.Module):
