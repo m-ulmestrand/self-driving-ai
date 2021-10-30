@@ -63,6 +63,7 @@ class RacingAgent:
         self.generation_length = generation_length
         self.current_step = 0
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
+        self.network_type = network_type
         self.network = network_type(self.network_params)
         self.seq_length = seq_length
 
@@ -108,7 +109,7 @@ class RacingAgent:
             name = self.save_name
         name = 'build/' + name + '.pt'
         if os.path.isfile(name):
-            self.network = DenseNetwork(self.network_params).to(device)
+            self.network = self.network_type(self.network_params).to(device)
             self.network.load_state_dict(torch.load(name))
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
