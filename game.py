@@ -13,7 +13,7 @@ race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="
 race_car.save_name = 'racing_agent_improved3'
 race_car.load_network(name=race_car.save_name)
 
-track = "racetrack0"
+track = "racetrack1"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
 train_network = False
