@@ -36,7 +36,7 @@ class RecurrentNetwork(nn.Module):
         self.recurrent_layers = nn.ModuleList()
 
         for i in range(len(n_neurons)-2):
-            self.recurrent_layers.append(RNN(n_neurons[i], n_neurons[i+1], batch_first=True, nonlinearity="relu", dropout=0.5))
+            self.recurrent_layers.append(RNN(n_neurons[i], n_neurons[i+1], batch_first=True, nonlinearity="relu"))
         self.linear = Linear(n_neurons[-2], n_neurons[-1])
         self.double()
         self.to(device)
