@@ -16,7 +16,7 @@ class RacingAgent:
                  epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000, n_tracks: int = 7,
                  learning_rate: float = 0.001, batch_size: int = 100, network_type=DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-                 hidden_neurons: tuple = (32, 32), generation_length: int = 2000):
+                 hidden_neurons: tuple = (32, 32), seq_length=5, generation_length: int = 2000):
 
         # Various car model parameters
         self.box_size = box_size
@@ -64,14 +64,15 @@ class RacingAgent:
         self.current_step = 0
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
         self.network = network_type(self.network_params)
+        self.seq_length = seq_length
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
         self.rewards_buffer = torch.zeros(0, dtype=torch.double)
-        self.states = torch.zeros((generation_length, self.n_inputs), dtype=torch.double)
-        self.states_buffer = torch.zeros((0, self.n_inputs), dtype=torch.double)
-        self.old_states = torch.zeros((generation_length, self.n_inputs), dtype=torch.double)
-        self.old_states_buffer = torch.zeros((0, self.n_inputs), dtype=torch.double)
+        self.states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
+        self.states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros(generation_length, dtype=torch.long)
         self.actions_buffer = torch.zeros(0, dtype=torch.long)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
@@ -89,8 +90,8 @@ class RacingAgent:
         self.angle = np.arctan2(diff[1], diff[0])
         self.velocity = diff / np.sqrt(np.sum(diff**2)) * self.max_speed * 0.5
         self.rewards = torch.zeros(self.generation_length, dtype=torch.double)
-        self.states = torch.zeros((self.generation_length, self.n_inputs), dtype=torch.double)
-        self.old_states = torch.zeros((self.generation_length, self.n_inputs), dtype=torch.double)
+        self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros(self.generation_length, dtype=torch.long)
         self.has_collided = False
         self.node_passing_times = np.zeros(0, dtype='intc')
