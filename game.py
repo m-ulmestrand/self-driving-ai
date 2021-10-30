@@ -1,4 +1,5 @@
 from racing_agent_improved import RacingAgent
+from racing_network import DenseNetwork, RecurrentNetwork
 import numpy as np
 from matplotlib import pyplot as plt
 from init_cuda import init_cuda
@@ -9,8 +10,8 @@ import sys
 box_size = 100
 runs = 5000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="discard_old",
-                       epsilon_final=0.5, r_min=5., buffer_size=5000)
-race_car.save_name = 'racing_agent_improved3'
+                       epsilon_final=0.5, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork)
+race_car.save_name = 'racing_agent_dense'
 race_car.load_network(name=race_car.save_name)
 
 track = "racetrack1"
@@ -34,7 +35,7 @@ if train_network:
                   f"Epsilon: {round(race_car.get_epsilon(), 2)}, " \
                   f"Loss: {round(race_car.total_loss, 4)}"
         sys.stdout.write(message)
-        race_car.reinitialize_random_track()
+        race_car.reinitialize()
     race_car.save_network('final_' + race_car.save_name)
 
 else:
@@ -49,7 +50,7 @@ else:
     line_plot, = ax.plot([None], [None])
     fig.canvas.draw()
     plt.show(block=False)
-    race_car.load_network('final_'+race_car.save_name)
+    race_car.load_network('final'+race_car.save_name)
 
     while plt.fignum_exists(fig.number) \
             and race_car.current_step < race_car.generation_length:

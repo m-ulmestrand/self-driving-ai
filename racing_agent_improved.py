@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 import numpy as np
 from typing import Literal
 from racing_network import DenseNetwork
@@ -14,9 +15,9 @@ class RacingAgent:
     def __init__(self, box_size: int = 100, car_width: float = 1., car_length: float = 4., lane_width: float = 5.,
                  r_min: float = 4., turning_speed: float = 0.25, speed: float = 1., epsilon_start: float = 1.,
                  epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000, n_tracks: int = 7,
-                 learning_rate: float = 0.001, batch_size: int = 100, network_type=DenseNetwork,
+                 learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-                 hidden_neurons: tuple = (32, 32), generation_length: int = 2000):
+                 hidden_neurons: tuple = (32, 32), seq_length: int = 5, generation_length: int = 2000):
 
         # Various car model parameters
         self.box_size = box_size
@@ -63,15 +64,17 @@ class RacingAgent:
         self.generation_length = generation_length
         self.current_step = 0
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
+        self.network_type = network_type
         self.network = network_type(self.network_params)
+        self.seq_length = seq_length
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
         self.rewards_buffer = torch.zeros(0, dtype=torch.double)
-        self.states = torch.zeros((generation_length, self.n_inputs), dtype=torch.double)
-        self.states_buffer = torch.zeros((0, self.n_inputs), dtype=torch.double)
-        self.old_states = torch.zeros((generation_length, self.n_inputs), dtype=torch.double)
-        self.old_states_buffer = torch.zeros((0, self.n_inputs), dtype=torch.double)
+        self.states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
+        self.states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros(generation_length, dtype=torch.long)
         self.actions_buffer = torch.zeros(0, dtype=torch.long)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
@@ -89,8 +92,8 @@ class RacingAgent:
         self.angle = np.arctan2(diff[1], diff[0])
         self.velocity = diff / np.sqrt(np.sum(diff**2)) * self.max_speed * 0.5
         self.rewards = torch.zeros(self.generation_length, dtype=torch.double)
-        self.states = torch.zeros((self.generation_length, self.n_inputs), dtype=torch.double)
-        self.old_states = torch.zeros((self.generation_length, self.n_inputs), dtype=torch.double)
+        self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
+        self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros(self.generation_length, dtype=torch.long)
         self.has_collided = False
         self.node_passing_times = np.zeros(0, dtype='intc')
@@ -107,7 +110,7 @@ class RacingAgent:
             name = self.save_name
         name = 'build/' + name + '.pt'
         if os.path.isfile(name):
-            self.network = DenseNetwork(self.network_params).to(device)
+            self.network = self.network_type(self.network_params).to(device)
             self.network.load_state_dict(torch.load(name))
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
@@ -170,7 +173,7 @@ class RacingAgent:
         new_vectors = rotate(self.angles, vector.reshape((2, 1)))
         new_vectors = np.append(new_vectors, vector.reshape((1, 2)), axis=0)
         car_bounds = car_lines(position, self.angle, self.car_width, self.car_length)
-        features = torch.ones((1, self.n_inputs), dtype=torch.double)
+        features = torch.ones((1, self.seq_length, self.n_inputs), dtype=torch.double)
 
         for i, vec in enumerate(new_vectors):
 
@@ -178,13 +181,13 @@ class RacingAgent:
                 distance_frac = line_intersect_distance(car_front, car_front + vec,
                                                         track_outer[node_id], track_outer[node_id + 1])
                 if distance_frac != 0:
-                    features[0, i] = distance_frac
+                    features[0, -1, i] = distance_frac
                     break
                 else:
                     distance_frac = line_intersect_distance(car_front, car_front + vec,
                                                             track_inner[node_id], track_inner[node_id + 1])
                     if distance_frac != 0:
-                        features[0, i] = distance_frac
+                        features[0, -1, i] = distance_frac
                         break
 
         car_collides = True if dist_to_node > self.lane_width else False
@@ -200,8 +203,15 @@ class RacingAgent:
                         car_collides = True
                         break
 
-        features[0, -2] = self.turning_angle / self.max_angle
-        features[0, -1] = np.sqrt(np.sum(self.velocity ** 2)) / self.max_speed
+        features[0, -1, -2] = self.turning_angle / self.max_angle
+        features[0, -1, -1] = np.sqrt(np.sum(self.velocity ** 2)) / self.max_speed
+        
+        if self.current_step != 0:
+            features[0, :-1] = self.old_states[self.current_step, 1:]
+        else:
+            for i in range(self.seq_length-1):
+                features[0, i] = features[0, -1]
+
         self.has_collided = car_collides
         return features
 
@@ -242,7 +252,7 @@ class RacingAgent:
             if self.current_step == 0:
                 self.old_states[self.current_step] = self.get_features()[0]
             else:
-                self.old_states[self.current_step] = self.states[self.current_step-1].reshape((1, self.n_inputs))
+                self.old_states[self.current_step] = self.states[self.current_step-1].reshape((self.seq_length, self.n_inputs))
 
         # Exploitation
         else:
@@ -251,7 +261,7 @@ class RacingAgent:
             if self.current_step == 0:
                 features = self.get_features()
             else:
-                features = self.states[self.current_step-1].reshape((1, self.n_inputs))
+                features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
             self.old_states[self.current_step] = features[0]
             output = self.network(features.to(device).double())
             action = torch.argmax(output).detach().cpu().item()
