@@ -27,14 +27,15 @@ if train_network:
             race_car.reward_per_node()
 
         race_car.reinforce(epochs=10)
+        sys.stdout.write("\b" * len(message))
         message = f"Generation: {race_car.generation}, " \
                   f"Time before crash: {race_car.current_step}, " \
                   f"Number of passed nodes: {len(race_car.node_passing_times)}, " \
                   f"Distance: {round(np.sqrt(np.sum((race_car.position-original_pos)**2)), 2)}, " \
                   f"Epsilon: {round(race_car.get_epsilon(), 2)}, " \
                   f"Loss: {round(race_car.total_loss, 4)}"
-        race_car.reinitialize_random_track()
-        print(race_car.states[race_car.current_step])
+        sys.stdout.write(message)
+        race_car.reinitialize()
     race_car.save_network('final_' + race_car.save_name)
 
 else:
