@@ -10,14 +10,14 @@ import sys
 box_size = 100
 runs = 5000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="discard_old",
-                       epsilon_final=0.5, r_min=5., buffer_size=5000, seq_length=5, network_type=RecurrentNetwork)
-race_car.save_name = 'racing_agent_rnn'
+                       epsilon_final=0.5, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork)
+race_car.save_name = 'racing_agent_dense'
 race_car.load_network(name=race_car.save_name)
 
 track = "racetrack1"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
-train_network = True
+train_network = False
 
 if train_network:
     message = ""
@@ -50,7 +50,7 @@ else:
     line_plot, = ax.plot([None], [None])
     fig.canvas.draw()
     plt.show(block=False)
-    race_car.load_network('final_'+race_car.save_name)
+    race_car.load_network('final'+race_car.save_name)
 
     while plt.fignum_exists(fig.number) \
             and race_car.current_step < race_car.generation_length:
