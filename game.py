@@ -17,7 +17,7 @@ race_car.load_network(name=race_car.save_name)
 track = "racetrack1"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
-train_network = False
+train_network = True
 
 if train_network:
     message = ""
@@ -50,7 +50,7 @@ else:
     line_plot, = ax.plot([None], [None])
     fig.canvas.draw()
     plt.show(block=False)
-    race_car.load_network('final'+race_car.save_name)
+    race_car.load_network('final_'+race_car.save_name)
 
     while plt.fignum_exists(fig.number) \
             and race_car.current_step < race_car.generation_length:
