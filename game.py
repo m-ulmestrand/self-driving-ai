@@ -1,4 +1,5 @@
 from racing_agent_improved import RacingAgent
+from racing_network import DenseNetwork, RecurrentNetwork
 import numpy as np
 from matplotlib import pyplot as plt
 from init_cuda import init_cuda
@@ -9,14 +10,14 @@ import sys
 box_size = 100
 runs = 5000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="discard_old",
-                       epsilon_final=0.5, r_min=5., buffer_size=5000)
-race_car.save_name = 'racing_agent_improved3'
+                       epsilon_final=0.5, r_min=5., buffer_size=5000, seq_length=5, network_type=RecurrentNetwork)
+race_car.save_name = 'racing_agent_rnn'
 race_car.load_network(name=race_car.save_name)
 
 track = "racetrack1"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
-train_network = False
+train_network = True
 
 if train_network:
     message = ""
@@ -26,15 +27,14 @@ if train_network:
             race_car.reward_per_node()
 
         race_car.reinforce(epochs=10)
-        sys.stdout.write("\b" * len(message))
         message = f"Generation: {race_car.generation}, " \
                   f"Time before crash: {race_car.current_step}, " \
                   f"Number of passed nodes: {len(race_car.node_passing_times)}, " \
                   f"Distance: {round(np.sqrt(np.sum((race_car.position-original_pos)**2)), 2)}, " \
                   f"Epsilon: {round(race_car.get_epsilon(), 2)}, " \
                   f"Loss: {round(race_car.total_loss, 4)}"
-        sys.stdout.write(message)
         race_car.reinitialize_random_track()
+        print(race_car.states[race_car.current_step])
     race_car.save_network('final_' + race_car.save_name)
 
 else:
