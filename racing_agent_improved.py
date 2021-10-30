@@ -14,10 +14,11 @@ class RacingAgent:
     def __init__(self, box_size: int = 100, car_width: float = 1., car_length: float = 4., lane_width: float = 5.,
                  r_min: float = 4., turning_speed: float = 0.25, speed: float = 1., epsilon_start: float = 1.,
                  epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000, n_tracks: int = 7,
-                 learning_rate: float = 0.001, batch_size: int = 100,
+                 learning_rate: float = 0.001, batch_size: int = 100, network_type=DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
                  hidden_neurons: tuple = (32, 32), generation_length: int = 2000):
 
+        # Various car model parameters
         self.box_size = box_size
         self.diag = box_size * np.sqrt(2)
         self.car_width, self.car_length = car_width, car_length
@@ -39,10 +40,22 @@ class RacingAgent:
         self.n_tracks = n_tracks
         self.max_angle = np.pi / 4
 
+        # Controlling exploration during Q-learning
         self.epsilon_start = epsilon_start
         self.epsilon_scale = epsilon_scale
         self.epsilon_final = epsilon_final
 
+        # Placeholder for the track
+        self.track_nodes = np.array([])
+        self.track_outer = np.array([])
+        self.track_inner = np.array([])
+
+        # A few variables for checking progress on track
+        self.has_collided = False
+        self.node_passing_times = np.zeros(0, dtype='intc')
+        self.passed_node = False
+
+        # Neural network parameters and training buffers
         self.buffer_size = buffer_size
         self.buffer_behaviour = buffer_behaviour
         self.learning_rate = learning_rate
@@ -50,12 +63,9 @@ class RacingAgent:
         self.generation_length = generation_length
         self.current_step = 0
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
-        self.network = DenseNetwork(self.network_params)
+        self.network = network_type(self.network_params)
 
-        self.track_nodes = np.array([])
-        self.track_outer = np.array([])
-        self.track_inner = np.array([])
-
+        # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
         self.rewards_buffer = torch.zeros(0, dtype=torch.double)
         self.states = torch.zeros((generation_length, self.n_inputs), dtype=torch.double)
@@ -69,10 +79,6 @@ class RacingAgent:
         self.batch_size = batch_size
         self.total_loss = 0
         self.longest_survival = 0
-
-        self.has_collided = False
-        self.node_passing_times = np.zeros(0, dtype='intc')
-        self.passed_node = False
 
     def reinitialize(self):
         self.generation += 1
