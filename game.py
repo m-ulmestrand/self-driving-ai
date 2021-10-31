@@ -10,8 +10,8 @@ import sys
 box_size = 100
 runs = 5000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="discard_old",
-                       epsilon_final=0.5, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork)
-race_car.save_name = 'racing_agent_dense'
+                       epsilon_final=0.5, r_min=5., buffer_size=1000, seq_length=1, network_type=DenseNetwork)
+race_car.save_name = 'agent_dense2'
 race_car.load_network(name=race_car.save_name)
 
 track = "racetrack1"
@@ -35,7 +35,7 @@ if train_network:
                   f"Epsilon: {round(race_car.get_epsilon(), 2)}, " \
                   f"Loss: {round(race_car.total_loss, 4)}"
         sys.stdout.write(message)
-        race_car.reinitialize()
+        race_car.reinitialize_random_track()
     race_car.save_network('final_' + race_car.save_name)
 
 else:
