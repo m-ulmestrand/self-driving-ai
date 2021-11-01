@@ -103,7 +103,7 @@ save_track = input("Save track? ")
 if len(save_track) > 0:
     if save_track.lower() != "no" and save_track.lower() != "n":
         i = 0
-        track = 'build/racetrack'
+        track = 'tracks/racetrack'
         track_name = f"{track}{i}.npy"
         while os.path.isfile(track_name):
             i += 1
