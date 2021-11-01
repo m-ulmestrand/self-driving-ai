@@ -20,6 +20,9 @@ The neural network accepts seven features:
 
 All of the features are normalised to the interval 0 to 1. I try to make this normalisation a habit since it makes sense to me to have an interval where the weights of the neural network are likely to be initialised in the vicinity of. It may also generalise better, since I normalise by dividing with physical measures and thus make the parameters nondimensional. As such, it does not matter if the measures of the car, track and speed were to be scaled up by some factor, the network still sees the same input. 
 
+### Target network
+Deep Q-learning can be very unstable. One way to stabilise the learning procedure is to introduce a target network. The target network is synchronised with the prediction network periodically, and is thus kept constant for prolonged periods. The target network is used to estimate the future Q-values, while the prediction network estimates the current Q-values.
+
 ### Output
 The network outputs Q-values for:
 1. Increasing the angle of the wheels relative to the car
