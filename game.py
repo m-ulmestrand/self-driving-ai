@@ -8,16 +8,18 @@ import sys
 
 
 box_size = 100
-runs = 5000
-race_car = RacingAgent(box_size=box_size, epsilon_scale=runs, buffer_behaviour="discard_old",
-                       epsilon_final=0.5, r_min=5., buffer_size=1000, seq_length=1, network_type=DenseNetwork)
-race_car.save_name = 'agent_dense2'
+runs = 2000
+epsilon_scale = 1000
+race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_behaviour="discard_old",
+                       epsilon_start=1.0, epsilon_final=0.0, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
+                       hidden_neurons=(128,128,32), track_numbers=[1], target_sync=0.05)
+race_car.save_name = 'agent_dense4'
 race_car.load_network(name=race_car.save_name)
 
-track = "racetrack1"
+track = "racetrack2"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
-train_network = True
+train_network = False
 
 if train_network:
     message = ""
@@ -28,7 +30,7 @@ if train_network:
 
         race_car.reinforce(epochs=10)
         sys.stdout.write("\b" * len(message))
-        message = f"Generation: {race_car.generation}, " \
+        message = f"Generation: {i}, " \
                   f"Time before crash: {race_car.current_step}, " \
                   f"Number of passed nodes: {len(race_car.node_passing_times)}, " \
                   f"Distance: {round(np.sqrt(np.sum((race_car.position-original_pos)**2)), 2)}, " \

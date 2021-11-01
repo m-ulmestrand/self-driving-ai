@@ -14,10 +14,11 @@ device = init_cuda()
 class RacingAgent:
     def __init__(self, box_size: int = 100, car_width: float = 1., car_length: float = 4., lane_width: float = 5.,
                  r_min: float = 4., turning_speed: float = 0.25, speed: float = 1., epsilon_start: float = 1.,
-                 epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000, n_tracks: int = 7,
+                 epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000,
                  learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-                 hidden_neurons: tuple = (32, 32), seq_length: int = 5, generation_length: int = 2000):
+                 hidden_neurons: tuple = (32, 32), seq_length: int = 5, generation_length: int = 2000, 
+                 track_numbers=np.arange(8), target_sync: float = 0.1):
 
         # Various car model parameters
         self.box_size = box_size
@@ -38,7 +39,7 @@ class RacingAgent:
         self.turning_angle = 0
         self.turning_speed = turning_speed
         self.save_name = "racing_agent_improved"
-        self.n_tracks = n_tracks
+        self.track_numbers = track_numbers
         self.max_angle = np.pi / 4
 
         # Controlling exploration during Q-learning
@@ -66,7 +67,11 @@ class RacingAgent:
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
         self.network_type = network_type
         self.network = network_type(self.network_params)
+        self.target_network = network_type(self.network_params)
+        self.target_network.load_state_dict(self.network.state_dict())
+        self.target_network.eval()
         self.seq_length = seq_length
+        self.target_sync_period = int(target_sync * self.generation_length)
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
@@ -112,6 +117,7 @@ class RacingAgent:
         if os.path.isfile(name):
             self.network = self.network_type(self.network_params).to(device)
             self.network.load_state_dict(torch.load(name))
+            self.target_network.load_state_dict(self.network.state_dict())
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
 
@@ -134,10 +140,7 @@ class RacingAgent:
         self.car_bounds = car_lines(self.position, self.angle, self.car_width, self.car_length)
 
     def store_random_track(self, choices=None):
-        if choices is None:
-            name = 'racetrack' + str(np.random.randint(0, self.n_tracks))
-        else:
-            name = 'racetrack' + str(np.random.choice(choices))
+        name = 'racetrack' + str(np.random.choice(self.track_numbers))
         self.store_track(track_name=name)
 
     def get_epsilon(self):
@@ -343,9 +346,12 @@ class RacingAgent:
             self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
                                 self.old_states[:self.current_step], self.states[:self.current_step])
 
-        if len(self.node_passing_times) > self.max_node:
+        if len(self.node_passing_times) >= self.max_node:
             self.max_node = len(self.node_passing_times)
             self.save_network()
+
+        if self.current_step % self.target_sync_period == 0:
+            self.target_network.load_state_dict(self.network.state_dict())
 
     def reinforce(self, epochs=1):
         if self.rewards_buffer.shape[0] > self.batch_size:
@@ -362,7 +368,7 @@ class RacingAgent:
                     end_index += batch_size
                     batch_inds = indices[start_index:end_index]
                     q_old = self.network(self.old_states_buffer[batch_inds].to(device))
-                    q_new = self.network(self.states_buffer[batch_inds].to(device))
+                    q_new = self.target_network(self.states_buffer[batch_inds].to(device))
 
                     q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
                     q_new_max = torch.max(q_new, dim=1)[0]
