@@ -7,7 +7,7 @@ https://user-images.githubusercontent.com/54723095/139694716-0a3dcdaa-ae4e-4c1c-
 
 
 
-Example of a neural network controlling the car model, trained for a few minutes on an NVIDIA GeForce RTX 3050 laptop GPU.
+Example of a neural network controlling the car model, trained for a few minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop!
 
 ## Neural network
 At the time being, the brain of the car is a simple fully connected neural network.
