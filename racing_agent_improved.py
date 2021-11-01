@@ -356,6 +356,7 @@ class RacingAgent:
     def reinforce(self, epochs=1):
         if self.rewards_buffer.shape[0] > self.batch_size:
             self.network.train()
+            self.target_network.train()
 
             indices = torch.randperm(self.rewards_buffer.shape[0]).long()
             batch_size = self.batch_size
@@ -378,3 +379,4 @@ class RacingAgent:
                     self.total_loss += loss.detach().cpu().item()
                     start_index += batch_size
             self.total_loss /= epochs
+            self.target_network.eval()

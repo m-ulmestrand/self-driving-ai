@@ -8,15 +8,15 @@ import sys
 
 
 box_size = 100
-runs = 2000
+runs = 1500
 epsilon_scale = 1000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_behaviour="discard_old",
-                       epsilon_start=1.0, epsilon_final=0.0, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
-                       hidden_neurons=(128,128,32), track_numbers=[1], target_sync=0.05)
-race_car.save_name = 'agent_dense4'
+                       epsilon_start=1.0, epsilon_final=0.1, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
+                       hidden_neurons=(32,32,32), target_sync=0.1, generation_length=1000)
+race_car.save_name = 'agent_dense3'
 race_car.load_network(name=race_car.save_name)
 
-track = "racetrack2"
+track = "racetrack0"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
 train_network = False
@@ -52,7 +52,7 @@ else:
     line_plot, = ax.plot([None], [None])
     fig.canvas.draw()
     plt.show(block=False)
-    race_car.load_network('final_'+race_car.save_name)
+    race_car.load_network(race_car.save_name)
 
     while plt.fignum_exists(fig.number) \
             and race_car.current_step < race_car.generation_length:
@@ -63,7 +63,7 @@ else:
         ax.plot(inner_line[:, 0], inner_line[:, 1], 'k')
         ax.plot(outer_line[:, 0], outer_line[:, 1], 'k')
         ax.plot(nodes[:, 0], nodes[:, 1], 'ko', markersize=2)
-        ax.plot(car_bounds[:, 0], car_bounds[:, 1], 'r' if race_car.has_collided else 'k')
+        ax.plot(car_bounds[:, 0], car_bounds[:, 1], 'k' if race_car.has_collided else 'k')
         ax.plot(xs, ys, color='limegreen')
         ax.set_xlim(0, box_size)
         ax.set_ylim(0, box_size)
