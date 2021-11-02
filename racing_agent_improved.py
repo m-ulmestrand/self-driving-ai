@@ -154,7 +154,7 @@ class RacingAgent:
         self.velocity[1] = np.sin(self.angle) * speed
         self.position += self.velocity
 
-    def get_features(self):
+    def get_features(self, other_car_bounds=None):
         position = self.position
         nodes = self.track_nodes
         track_outer = self.track_outer
@@ -192,6 +192,17 @@ class RacingAgent:
                     if distance_frac != 0:
                         features[0, -1, i] = distance_frac
                         break
+
+            if other_car_bounds is None:
+                continue
+            
+            # If we have given the bounds of other cars, check if the distance to them is smaller
+            for other_lines in other_car_bounds:
+                for j in (np.arange(3) * 2):
+                    distance_frac = line_intersect_distance(car_front, car_front + vec,
+                                                            other_lines[j], other_lines[j + 1])
+                    if distance_frac < features[0, -1, i]:
+                        features[0, -1, i] = distance_frac
 
         car_collides = True if dist_to_node > self.lane_width else False
         if not car_collides:
@@ -272,6 +283,20 @@ class RacingAgent:
 
         self.actions[self.current_step] = action
         self.take_action(action)
+
+    def multi_agent_forward_pass(self, agents: list):
+        n_agents = len(agents)
+        features_list = [0] * n_agents
+
+        for i in np.arange(n_agents):
+            features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])
+            
+        features = torch.stack(features_list)
+        outputs = self.network(features.to(device).double())
+        actions = torch.argmax(outputs, dim=1).detach().cpu().item()
+
+        for i in np.arange(len(agents)):
+            agents[i].take_action(actions[i])
 
     def append_tensors(self, rewards, actions, old_states, states):
         buffer_current_size = self.rewards_buffer.shape[0]
