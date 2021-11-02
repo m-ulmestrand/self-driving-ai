@@ -335,10 +335,11 @@ class RacingAgent:
                 # If the car didn't pass any nodes, all times are penalised
                 t_after_nodes = 0
 
-            diff = self.current_step - t_after_nodes
-            reward = -1
-            for i in range(t_after_nodes, self.current_step):
-                self.rewards[i] = reward * (i + 1) / diff
+            if not self.current_step == self.generation_length:
+                diff = self.current_step - t_after_nodes
+                reward = -1
+                for i in range(t_after_nodes, self.current_step):
+                    self.rewards[i] = reward * (i + 1) / diff
             self.passed_node = False
 
         do_append = np.random.rand() < len(self.node_passing_times) / 20

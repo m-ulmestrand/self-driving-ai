@@ -16,7 +16,7 @@ race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_be
 race_car.save_name = 'agent_dense3'
 race_car.load_network(name=race_car.save_name)
 
-track = "racetrack0"
+track = "racetrack8"
 race_car.store_track(track)
 original_pos = np.copy(race_car.position)
 train_network = False
