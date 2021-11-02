@@ -154,7 +154,7 @@ class RacingAgent:
         self.velocity[1] = np.sin(self.angle) * speed
         self.position += self.velocity
 
-    def get_features(self, other_car_bounds=None):
+    def get_features(self, other_agents=None):
         position = self.position
         nodes = self.track_nodes
         track_outer = self.track_outer
@@ -179,29 +179,30 @@ class RacingAgent:
         features = torch.ones((1, self.seq_length, self.n_inputs), dtype=torch.double)
 
         for i, vec in enumerate(new_vectors):
-
+            lidar_line = car_front + vec
             for node_id in np.append(np.arange(node_index - 1, nodes.shape[0] - 1), np.arange(0, node_index - 1)):
-                distance_frac = line_intersect_distance(car_front, car_front + vec,
+                distance_frac = line_intersect_distance(car_front, lidar_line,
                                                         track_outer[node_id], track_outer[node_id + 1])
                 if distance_frac != 0:
                     features[0, -1, i] = distance_frac
                     break
                 else:
-                    distance_frac = line_intersect_distance(car_front, car_front + vec,
+                    distance_frac = line_intersect_distance(car_front, lidar_line,
                                                             track_inner[node_id], track_inner[node_id + 1])
                     if distance_frac != 0:
                         features[0, -1, i] = distance_frac
                         break
 
-            if other_car_bounds is None:
+            if other_agents is None:
                 continue
             
-            # If we have given the bounds of other cars, check if the distance to them is smaller
-            for other_lines in other_car_bounds:
+            # If there are other cars present, check if the distance to them is smaller
+            for other_agent in other_agents:
+                other_lines = car_lines(other_agent.position, other_agent.angle, other_agent.car_width, other_agent.car_length)
                 for j in (np.arange(3) * 2):
-                    distance_frac = line_intersect_distance(car_front, car_front + vec,
+                    distance_frac = line_intersect_distance(car_front, lidar_line,
                                                             other_lines[j], other_lines[j + 1])
-                    if distance_frac < features[0, -1, i]:
+                    if distance_frac < features[0, -1, i] and distance_frac != 0:
                         features[0, -1, i] = distance_frac
 
         car_collides = True if dist_to_node > self.lane_width else False
@@ -289,11 +290,11 @@ class RacingAgent:
         features_list = [0] * n_agents
 
         for i in np.arange(n_agents):
-            features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])
-            
+            features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])[0]
+
         features = torch.stack(features_list)
         outputs = self.network(features.to(device).double())
-        actions = torch.argmax(outputs, dim=1).detach().cpu().item()
+        actions = torch.argmax(outputs, dim=1).detach().cpu()
 
         for i in np.arange(len(agents)):
             agents[i].take_action(actions[i])
