@@ -18,7 +18,7 @@ class RacingAgent:
                  learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
                  hidden_neurons: tuple = (32, 32), seq_length: int = 5, generation_length: int = 2000, 
-                 track_numbers=np.arange(8), target_sync: float = 0.1):
+                 track_numbers=np.arange(8), target_sync: int = 150):
 
         # Various car model parameters
         self.box_size = box_size
@@ -71,7 +71,7 @@ class RacingAgent:
         self.target_network.load_state_dict(self.network.state_dict())
         self.target_network.eval()
         self.seq_length = seq_length
-        self.target_sync_period = int(target_sync * self.generation_length)
+        self.target_sync_period = target_sync
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
