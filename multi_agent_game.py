@@ -14,17 +14,17 @@ epsilon_scale = 1000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_behaviour="discard_old",
                        epsilon_start=1.0, epsilon_final=0.1, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
                        hidden_neurons=(32,32,32), target_sync=0.1, generation_length=1000)
-track = "racetrack2"
+track = "racetrack12"
 race_car.store_track(track)
 race_car.save_name = 'agent_dense3'
 race_car.load_network(name=race_car.save_name)
 
 race_cars = [race_car]
-n_cars = 3
+n_cars = 5
 
 for i in range(1, n_cars):
     new_car = deepcopy(race_car)
-    node_id = i
+    node_id = i*2
     new_car.position = np.copy(new_car.track_nodes[node_id])
     diff = new_car.track_nodes[node_id] - new_car.track_nodes[node_id-1]
     new_car.angle = np.arctan2(diff[1], diff[0])
