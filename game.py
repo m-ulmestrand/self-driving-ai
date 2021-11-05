@@ -13,7 +13,7 @@ epsilon_scale = 1000
 race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_behaviour="discard_old",
                        epsilon_start=1.0, epsilon_final=0.1, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
                        hidden_neurons=(32,32,32), target_sync=0.1, generation_length=1000)
-race_car.save_name = 'agent_dense3'
+race_car.save_name = 'agent_dense'
 race_car.load_network(name=race_car.save_name)
 
 track = "racetrack12"
