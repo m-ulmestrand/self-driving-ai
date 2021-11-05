@@ -16,6 +16,12 @@ https://user-images.githubusercontent.com/54723095/139856396-8dd7224a-b57e-46e2-
 
 The neural network applied to previously unseen test tracks.
 
+
+https://user-images.githubusercontent.com/54723095/139884525-9245135d-0381-4a14-a78f-5e6c9d83f8ec.mp4
+
+We can even use several cars. At one point, a car overtakes another one.
+
+
 ## Neural network
 At the time being, the brain of the car is a simple fully connected neural network.
 
