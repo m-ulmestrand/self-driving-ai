@@ -8,6 +8,7 @@ box_size = 100              # Maximum bounds of track
 mouse_x, mouse_y = 0, 0     # Mouse positions
 nodes = np.zeros((0, 2))    # Positions of track nodes
 d = 3                       # Distance between nodes
+track_width = 5             # Width of the racetrack
 
 fig, ax = plt.subplots()
 plt.plot()
@@ -37,10 +38,10 @@ def add_borders(node1, node2, node3, i):
     x_diff_norm = x_diff1 / distance
     y_diff_norm = y_diff1 / distance
     # Orthogonal to [x_diff, y_diff]
-    width_vect = np.array([-y_diff_norm, x_diff_norm]) * width
+    width_vect = np.array([-y_diff_norm, x_diff_norm]) * track_width
 
     d_theta = angle2 - angle1
-    surplus = width * np.sin(np.abs(d_theta))
+    surplus = track_width * np.sin(d_theta)
     outer_line[i] = node1 + width_vect
     outer_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
     inner_line[i] = node1 - width_vect
@@ -80,7 +81,6 @@ while plt.fignum_exists(fig.number):
 
 outer_line = np.zeros_like(nodes)
 inner_line = np.zeros_like(nodes)
-width = 5
 
 new_nodes = np.append(nodes, np.array([nodes[1]]), axis=0)
 for i, node in enumerate(zip(new_nodes[:-2], new_nodes[1:-1], new_nodes[2:])):
