@@ -41,7 +41,7 @@ def add_borders(node1, node2, node3, i):
     width_vect = np.array([-y_diff_norm, x_diff_norm]) * track_width
 
     d_theta = angle2 - angle1
-    surplus = track_width * np.sin(d_theta)
+    surplus = track_width * np.sin(np.abs(d_theta))
     outer_line[i] = node1 + width_vect
     outer_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
     inner_line[i] = node1 - width_vect
