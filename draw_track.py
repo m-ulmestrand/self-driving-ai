@@ -1,3 +1,17 @@
+'''
+This file is for drawing your own tracks.
+When running the script, hold A and draw a curve with the mouse.
+Nodes will appear on the plot, and when you have connected
+the final node to the first one (this will happen when close enough),
+two boundary lines will be made.
+When you draw the line, be careful not to make too sharp corners.
+This will produce yanks in the track - dealing with that problem is difficult.
+
+When exiting the plot, you will be asked if you want to save the track.
+Press yes/y or no/n to confirm your answer (case insensitive).
+'''
+
+
 from matplotlib import pyplot as plt
 import keyboard
 import numpy as np
@@ -41,11 +55,13 @@ def add_borders(node1, node2, node3, i):
     width_vect = np.array([-y_diff_norm, x_diff_norm]) * track_width
 
     d_theta = angle2 - angle1
-    surplus = track_width * np.sin(np.abs(d_theta))
-    outer_line[i] = node1 + width_vect
-    outer_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
-    inner_line[i] = node1 - width_vect
-    inner_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance + surplus)
+    surplus = track_width * np.sin(d_theta)
+    if np.abs(surplus) < distance:
+        surplus = np.sign(surplus) * distance
+    outer_line[i] = node1 - width_vect
+    outer_line[i + 1] = outer_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance + surplus)
+    inner_line[i] = node1 + width_vect
+    inner_line[i + 1] = inner_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
 
 
 node_nr = 0
@@ -71,7 +87,7 @@ while plt.fignum_exists(fig.number):
                 x_diff = mouse_x - nodes[0, 0]
                 y_diff = mouse_y - nodes[0, 1]
                 d_squared = x_diff ** 2 + y_diff ** 2
-                if d_squared <= 2 * d ** 2 and np.sum((nodes[-1] - nodes[0])**2) <= 2 * d ** 2 and nodes.size > 5:
+                if d_squared <= 3 * d ** 2 and np.sum((nodes[-1] - nodes[0])**2) <= 2 * d ** 2 and nodes.size > 5:
                     nodes = np.append(nodes, np.array([[mouse_x, mouse_y]]), axis=0)
                     nodes = np.append(nodes, np.array([[nodes[0, 0], nodes[0, 1]]]), axis=0)
                     break
@@ -84,7 +100,8 @@ inner_line = np.zeros_like(nodes)
 
 new_nodes = np.append(nodes, np.array([nodes[1]]), axis=0)
 for i, node in enumerate(zip(new_nodes[:-2], new_nodes[1:-1], new_nodes[2:])):
-    add_borders(*node, i)
+    if not i % 2:
+        add_borders(*node, i)
 outer_line[-1] = outer_line[0]
 inner_line[-1] = inner_line[0]
 
