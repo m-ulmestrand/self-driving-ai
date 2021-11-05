@@ -1,4 +1,4 @@
-from racing_agent_improved import RacingAgent
+from racing_agent import RacingAgent
 from racing_network import DenseNetwork, RecurrentNetwork
 import numpy as np
 from matplotlib import pyplot as plt
