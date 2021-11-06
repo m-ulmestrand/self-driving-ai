@@ -10,7 +10,6 @@ from racing_agent import RacingAgent
 from racing_network import DenseNetwork, RecurrentNetwork
 import numpy as np
 from matplotlib import pyplot as plt
-from init_cuda import init_cuda
 from collision_handling import get_lidar_lines
 import argparse
 
