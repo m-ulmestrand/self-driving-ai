@@ -1,9 +1,16 @@
+'''If you are unsatisfied with the borders of a track, you can make changes, plot it and save it here.
+
+Author: Mattias Ulmestrand
+'''
+
+
 from matplotlib import pyplot as plt
 import numpy as np
+import os.path
 
 
-name = "racetrack5"
-track_nodes = np.load(f"{name}.npy")
+name = "racetrack10"
+track_nodes = np.load(f"tracks/{name}.npy")
 outer_line = np.zeros_like(track_nodes)
 inner_line = np.zeros_like(track_nodes)
 width = 5
@@ -18,20 +25,24 @@ def add_borders(node1, node2, node3, i):
 
     x_diff_norm = x_diff1 / distance
     y_diff_norm = y_diff1 / distance
+    
     # Orthogonal to [x_diff, y_diff]
     width_vect = np.array([-y_diff_norm, x_diff_norm]) * width
 
     d_theta = angle2 - angle1
-    surplus = width * np.sin(np.abs(d_theta))
-    outer_line[i] = node1 + width_vect
-    outer_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
-    inner_line[i] = node1 - width_vect
-    inner_line[i + 1] = np.array([x_diff_norm, y_diff_norm]) * (distance + surplus)
+    surplus = width * np.sin(d_theta)
+    if np.abs(surplus) < distance:
+        surplus = np.sign(surplus) * distance
+    outer_line[i] = node1 - width_vect
+    outer_line[i + 1] = outer_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance + surplus)
+    inner_line[i] = node1 + width_vect
+    inner_line[i + 1] = inner_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)
 
 
 new_nodes = np.append(track_nodes, np.array([track_nodes[1]]), axis=0)
 for i, node in enumerate(zip(new_nodes[:-2], new_nodes[1:-1], new_nodes[2:])):
-    add_borders(*node, i)
+    if not i % 2:
+        add_borders(*node, i)
 outer_line[-1] = outer_line[0]
 inner_line[-1] = inner_line[0]
 
@@ -49,5 +60,22 @@ plt.xlim(0, box_size)
 plt.ylim(0, box_size)
 ax.set_aspect('equal', adjustable='box')
 plt.show()
-np.save(f"{name}_inner_bound.npy", inner_line)
-np.save(f"{name}_outer_bound.npy", outer_line)
+
+save_track = input("Save track? ")
+
+if len(save_track) > 0:
+    if save_track.lower() != "no" and save_track.lower() != "n":
+        i = 0
+        track = 'tracks/racetrack'
+        track_name = f"{track}{i}.npy"
+        while os.path.isfile(track_name):
+            i += 1
+            print("Name", track_name, "already taken.")
+            track_name = f"{track}{i}.npy"
+        np.save(f"{track}{i}_inner_bound.npy", inner_line)
+        np.save(f"{track}{i}_outer_bound.npy", outer_line)
+        print("Track saved as", track_name + ".")
+    else:
+        print("Track not saved.")
+else:
+    print("Track not saved.")

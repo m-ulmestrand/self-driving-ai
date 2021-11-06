@@ -18,13 +18,24 @@ import numpy as np
 import os.path
 
 
-box_size = 100              # Maximum bounds of track
-mouse_x, mouse_y = 0, 0     # Mouse positions
-nodes = np.zeros((0, 2))    # Positions of track nodes
-d = 3                       # Distance between nodes
-track_width = 5             # Width of the racetrack
+# Maximum bounds of track
+box_size = 100
+
+# Mouse position placeholders
+mouse_x, mouse_y = 0, 0
+
+# Placeholder for positions of track nodes
+nodes = np.zeros((0, 2))
+
+# Distance between nodes. This should be lower than track_width.
+d = 3
+
+# Width of the racetrack
+track_width = 5
+
 
 fig, ax = plt.subplots()
+fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id)
 plt.plot()
 plt.xlim(0, box_size)
 plt.ylim(0, box_size)
@@ -51,6 +62,7 @@ def add_borders(node1, node2, node3, i):
 
     x_diff_norm = x_diff1 / distance
     y_diff_norm = y_diff1 / distance
+    
     # Orthogonal to [x_diff, y_diff]
     width_vect = np.array([-y_diff_norm, x_diff_norm]) * track_width
 

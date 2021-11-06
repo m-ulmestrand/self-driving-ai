@@ -1,0 +1,2 @@
+Network type:	DenseNetwork
+Network parameters:	7_32_32_32_4

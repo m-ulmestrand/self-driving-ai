@@ -1,3 +1,9 @@
+'''Auxiliary script for handling collisions and other things
+
+Author: Mattias Ulmestrand
+'''
+
+
 from numba import njit
 import numpy as np
 from numpy import ndarray

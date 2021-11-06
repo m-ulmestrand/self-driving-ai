@@ -1,8 +1,16 @@
+'''
+This script is the class for the racing agent. 
+A lot of different parameters are available to change for different behaviours.
+
+Author: Mattias Ulmestrand
+'''
+
+
 import torch
 from torch import nn
 import numpy as np
 from typing import Literal
-from racing_network import DenseNetwork
+from racing_network import DenseNetwork, RecurrentNetwork
 from collision_handling import *
 from init_cuda import init_cuda
 import os.path
@@ -17,8 +25,36 @@ class RacingAgent:
                  epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000,
                  learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-                 hidden_neurons: tuple = (32, 32), seq_length: int = 5, generation_length: int = 2000, 
-                 track_numbers=np.arange(8), target_sync: int = 150):
+                 hidden_neurons: tuple = (32, 32), seq_length: int = 1, generation_length: int = 2000, 
+                 track_numbers=np.arange(8), target_sync: int = 150, append_scale: int = 20):
+
+        # box_size: Size of the box which the track is contained in. 
+        # This does not ever need to be changed unless you change it in draw_track.
+        # car_width, car_length: Width and length of the car
+        # lane_width: width of the track
+        # r_min: Minimal turning radius
+        # turning_speed: How fast the steering wheel can be turned
+        # speed: Maximal speed of the car
+        
+        # epsilon_start: Start value of epsilon during training
+        # epsilon_scale: How fast epsilon decreases. Higher means slower
+        # epsilon_final: The final value of epsilon during training
+        # With epsilon_start = 1.0, epsilon_scale = generation_length, epsilon_final = 0.0,
+        # epsilon decreases linearly from 1.0 to 0.0 from generation 0 to the final generation.
+
+        # buffer_size: Size of the replay buffer
+        # learning_rate: Rate of learning for the optimizer
+        # batch_size: Batch size for training
+        # Network type: Which kind of network will be used
+        # buffer_behaviour: Determines whether to continuously discard old items, 
+        # or to just fill the buffer until full.
+        # hidden_neurons: Number of hidden neurons per layer
+        # seq_length: Sequence length for using RNN. For DenseNetwork, this should be 1
+        # generation_length: How long one generation can maximally be
+        # track_numbers: Which racetrack numbers will be used for training
+        # target_sync: How long the target network is kept constant
+        # append_scale: Determines how likely it is to append to replay buffer for a certain number of passed nodes.
+        # If the number of passed nodes is greater than append_scale, it will certainly append
 
         # Various car model parameters
         self.box_size = box_size
@@ -87,8 +123,10 @@ class RacingAgent:
         self.batch_size = batch_size
         self.total_loss = 0
         self.longest_survival = 0
+        self.append_scale = append_scale
 
-    def reinitialize(self):
+    def reinitialise(self):
+        '''Reinitialises the agent'''
         self.generation += 1
         self.current_step = 0
         self.position = np.copy(self.track_nodes[0])
@@ -106,28 +144,50 @@ class RacingAgent:
         self.current_node = 0
         self.total_loss = 0
 
-    def reinitialize_random_track(self):
-        self.reinitialize()
+    def reinitialise_random_track(self):
+        '''Reinitialises the agent and stores a random track'''
         self.store_random_track()
+        self.reinitialise()
 
     def load_network(self, name=None):
+        '''Loads a saved network'''
         if name is None:
             name = self.save_name
-        name = 'build/' + name + '.pt'
-        if os.path.isfile(name):
-            self.network = self.network_type(self.network_params).to(device)
-            self.network.load_state_dict(torch.load(name))
+        
+        name = 'build/' + name
+        network_file_name = name + '.pt'
+        network_param_name = name + '.txt'
+        if os.path.isfile(network_file_name):
+            try:
+                with open(network_param_name) as parameter_file:
+                    lines = parameter_file.readlines()
+                    network_dict = {DenseNetwork.__name__: DenseNetwork,
+                                    RecurrentNetwork.__name__: RecurrentNetwork}
+                    self.network_type = network_dict[lines[0].split()[-1]]
+                    parameters = (lines[1].split()[-1]).split('_')
+                    self.network_params = [int(param) for param in parameters]
+                    self.network = self.network_type(self.network_params).to(device)
+            except:
+                print("File " + network_param_name + " not found. Using stored settings instead.")
+                self.network = self.network_type(self.network_params).to(device)
+            self.network.load_state_dict(torch.load(network_file_name))
             self.target_network.load_state_dict(self.network.state_dict())
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
 
     def save_network(self, name=None):
+        '''Saves the current network'''
         if name is None:
             name = self.save_name
         name = 'build/' + name + '.pt'
         torch.save(self.network.state_dict(), name)
+        
+        with open("build/" + self.save_name + ".txt", 'w') as save_file:
+            save_file.write("Network type:\t" + self.network_type.__name__ + '\n')
+            save_file.write("Network parameters:\t" + '_'.join([str(param) for param in self.network_params]))
 
     def store_track(self, track_name):
+        '''Stores a track in the agent class instance'''
         npy = '.npy'
         track_name = 'tracks/' + track_name
         self.track_nodes = np.load(track_name + npy)
@@ -139,14 +199,17 @@ class RacingAgent:
         self.angle = np.arctan2(diff[1], diff[0])
         self.car_bounds = car_lines(self.position, self.angle, self.car_width, self.car_length)
 
-    def store_random_track(self, choices=None):
+    def store_random_track(self):
+        '''Stores a random track in the agent class instance'''
         name = 'racetrack' + str(np.random.choice(self.track_numbers))
         self.store_track(track_name=name)
 
     def get_epsilon(self):
+        '''Returns the current value for epsilon'''
         return max(self.epsilon_start - self.generation / self.epsilon_scale, self.epsilon_final)
 
     def move(self):
+        '''Moves the agent with current settings'''
         speed = np.sqrt(np.sum(self.velocity ** 2))
         angular_vel = speed / (self.r_min * np.tan(np.pi/2 - self.turning_angle))
         self.angle += angular_vel
@@ -155,6 +218,7 @@ class RacingAgent:
         self.position += self.velocity
 
     def get_features(self, other_agents=None):
+        '''Returns the features: LiDAR line measurements, speed and angle'''
         position = self.position
         nodes = self.track_nodes
         track_outer = self.track_outer
@@ -240,6 +304,7 @@ class RacingAgent:
         self.turning_angle = min_angle if self.turning_angle < min_angle else self.turning_angle - self.turning_speed
 
     def take_action(self, action):
+        '''Performs a selected action'''
         current_speed = np.sqrt(np.sum(self.velocity ** 2))
         if action == 0:
             self.turn_left()
@@ -261,6 +326,8 @@ class RacingAgent:
         self.states[self.current_step] = self.get_features()[0]
 
     def choose_action(self, epsilon=None):
+        '''Chooses an action depending on value of epsilon'''
+
         # Exploration
         eps = self.get_epsilon() if epsilon is None else epsilon
         if np.random.rand() < eps:
@@ -286,6 +353,7 @@ class RacingAgent:
         self.take_action(action)
 
     def multi_agent_forward_pass(self, agents: list):
+        '''Used for simultaneously deciding what actions to take for an ensemble of cars'''
         n_agents = len(agents)
         features_list = [0] * n_agents
 
@@ -300,6 +368,7 @@ class RacingAgent:
             agents[i].take_action(actions[i])
 
     def append_tensors(self, rewards, actions, old_states, states):
+        '''Appends to the replay buffer'''
         buffer_current_size = self.rewards_buffer.shape[0]
         new_size = rewards.shape[0]
         surplus = buffer_current_size + new_size - self.buffer_size
@@ -338,11 +407,14 @@ class RacingAgent:
                 self.states_buffer = torch.cat((self.states_buffer, states[:n_to_append]), dim=0)
 
     def reward_per_node(self):
+        '''Gives rewards depending on how well the agent performs'''
         self.current_step += 1
+
         if self.has_collided or self.current_step == self.generation_length:
             if len(self.node_passing_times) == 1:
                 n_steps = self.node_passing_times[0] + 1
                 reward = 1 / n_steps
+
                 for i in range(n_steps):
                     self.rewards[i] = reward * (i + 1) / self.current_step
                 # Save the times after passing nodes, they will be penalised
@@ -350,13 +422,16 @@ class RacingAgent:
 
             elif len(self.node_passing_times) > 1:
                 previous_times = np.append(0, self.node_passing_times[:-1])
+
                 for time1, time in zip(previous_times, self.node_passing_times):
                     time2 = time + 1
                     diff = time2 - time1
                     reward = 1 / diff
+
                     for step, i in enumerate(range(time1, time2)):
                         self.rewards[i] = reward * (step + 1) / diff
                 t_after_nodes = self.node_passing_times[-1] + 1
+
             else:
                 # If the car didn't pass any nodes, all times are penalised
                 t_after_nodes = 0
@@ -364,11 +439,13 @@ class RacingAgent:
             if not self.current_step == self.generation_length:
                 diff = self.current_step - t_after_nodes
                 reward = -1
+
                 for i in range(t_after_nodes, self.current_step):
                     self.rewards[i] = reward * (i + 1) / diff
             self.passed_node = False
 
-        do_append = np.random.rand() < len(self.node_passing_times) / 20
+        # Will append with probability depending on how far the agent got
+        do_append = np.random.rand() < len(self.node_passing_times) / self.append_scale
         if do_append and (self.has_collided or self.current_step == self.generation_length - 1) and self.current_step > 0:
             self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
                                 self.old_states[:self.current_step], self.states[:self.current_step])
@@ -381,6 +458,7 @@ class RacingAgent:
             self.target_network.load_state_dict(self.network.state_dict())
 
     def reinforce(self, epochs=1):
+        '''Deep Q-learning reinforcement step'''
         if self.rewards_buffer.shape[0] > self.batch_size:
             self.network.train()
             self.target_network.train()
