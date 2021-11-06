@@ -51,3 +51,7 @@ By changing the angle of the wheels, the turning radius is changed as well. Ther
 
 ## Dependencies
 The neural network is designed with PyTorch (1.8.1+cu102). In addition, NumPy (1.18.5) is used for many operations and information storing. To remove a lot of computational burden, I have used Numba (0.51.2) for several movement handling operations, collision detections, as well as distance measuring etc. For parsing command line arguments, argparse (1.4.0) is used.
+
+# Tutorial for running the scripts
+First of, make sure you have all of the necessary packages. Have a virtual environment set up. For example, you can then either use either ´pip install numpy´ or ´conda install numpy´ if you're using Conda (I stick to pip).
+## Drawing tracks
