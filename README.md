@@ -76,4 +76,4 @@ To test a trained agent, you can use the script `game.py`. You can either change
 python game.py --agent-name agent_dense --track-name racetrack1
 ```
 
-in the command line, which will load the pretrained agent `agent_dense` and try it out on the track `racetrack1`.
+in the command line, which will load the pretrained agent `agent_dense` and try it out on the track `racetrack1`. Note that there's no guarantee that the Deep Q-learning algorithm will lead to an optimal solution. Sometimes, the agent might end up going quite slow, even if it has been trained to be fast. Training for longer periods can mitigate this. 
