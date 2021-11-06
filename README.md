@@ -53,5 +53,13 @@ By changing the angle of the wheels, the turning radius is changed as well. Ther
 The neural network is designed with PyTorch (1.8.1+cu102). In addition, NumPy (1.18.5) is used for many operations and information storing. To remove a lot of computational burden, I have used Numba (0.51.2) for several movement handling operations, collision detections, as well as distance measuring etc. For parsing command line arguments, argparse (1.4.0) is used.
 
 # Tutorial for running the scripts
-First of, make sure you have all of the necessary packages. Have a virtual environment set up. For example, you can then either use either `pip install numpy` or `conda install numpy` if you're using Conda (I stick to pip).
+First of, make sure you have all of the necessary packages. Have a virtual environment set up. For example, you can then either use either `pip install numpy` or `conda install numpy` if you're using Conda (I stick to pip). For installing PyTorch, see https://pytorch.org/. The other packages are available on pip (I don't know about conda).
 ## Drawing tracks
+
+
+
+https://user-images.githubusercontent.com/54723095/140609814-b18d80fc-9093-485a-8c1c-8298f616aa3c.mp4
+
+I've stuck to a pretty simple approach of defining the tracks. When you run `python draw_track.py`, you can start drawing a track by holding the letter `A` and moving the mouse to define a set of nodes. Defining the borders is not particularly easy to get right, since one border needs to be shorter than the other in a turn. I have a provisional solution for this, but it is not perfect. Making too sharp turns may lead to yanks in the track. Sufficiently smooth curves will lead to a good track.
+
+## Training an AI
