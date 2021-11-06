@@ -60,6 +60,12 @@ First of, make sure you have all of the necessary packages. Have a virtual envir
 
 https://user-images.githubusercontent.com/54723095/140609814-b18d80fc-9093-485a-8c1c-8298f616aa3c.mp4
 
-I've stuck to a pretty simple approach of defining the tracks. When you run `python draw_track.py`, you can start drawing a track by holding the letter `A` and moving the mouse to define a set of nodes. Defining the borders is not particularly easy to get right, since one border needs to be shorter than the other in a turn. I have a provisional solution for this, but it is not perfect. Making too sharp turns may lead to yanks in the track. Sufficiently smooth curves will lead to a good track.
+I've stuck to a pretty simple approach of defining the tracks. When you run `python draw_track.py`, you can start drawing a track by holding the letter `A` and moving the mouse to define a set of nodes. When you are close enough to the original node again, the track will form. Defining the borders is not particularly easy to get right, since one border needs to be shorter than the other in a turn. I have a provisional solution for this, but it is not perfect. Making too sharp turns may lead to yanks in the track. Sufficiently smooth curves will lead to a good track.
 
-## Training an AI
+## Training a neural network
+To train a neural network, use the script `train.py`. There are many parameters that can be changed, but I find that the ones defined already in the script work well. To see a short explanation of the parameters, visit the script `racing_agent.py`. `epsilon` controls the initial randomness of the Q-learning algorithm, and thus promotes exploration. It is kept between 1.0 and 0.0. Using `epsilon_start = 1.0`, `epsilon_final = 0.0` and `epsilon_scale = runs` usually works well. These settings mean that `epsilon` linearly decreases from 1.0 to 0.0 from the first generation to the last.
+
+To train a new agent, specify an agent name, such as `agent_dense2`, and run the script with the command `python train.py`. This will train and save an agent in the folder `build`.
+
+## Testing your trained agent
+
