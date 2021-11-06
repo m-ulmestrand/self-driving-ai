@@ -12,11 +12,25 @@ import numpy as np
 from matplotlib import pyplot as plt
 from init_cuda import init_cuda
 from collision_handling import get_lidar_lines
-import sys
+import argparse
 
 
-def main(args):
-    
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run a simulation with a trained agent."
+    )
+    parser.add_argument(
+        "--agent-name",
+        required=False,
+        help="Name of the pretrained agent."
+    )
+    parser.add_argument(
+        "--track-name",
+        required=False,
+        help="Name of the track."
+    )
+
+    args = parser.parse_args()
     box_size = 100
     race_car = RacingAgent(box_size=box_size, buffer_size=1)
 
@@ -29,6 +43,14 @@ def main(args):
     # Change track to the one you want to try out.
     # Tracks are saved at ./tracks
     track = "racetrack12"
+
+    # If you have specified racetrack or agent in command line, these will be used instead.
+    if args.track_name is not None:
+        track = args.track_name
+    
+    if args.agent_name is not None:
+        race_car.save_name = args.agent_name
+
     race_car.store_track(track)
     original_pos = np.copy(race_car.position)
 
@@ -61,4 +83,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
