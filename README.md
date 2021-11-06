@@ -70,4 +70,10 @@ To train a new agent, specify an agent name, such as `agent_dense2`, and run the
 Currently, two neural network architectures are implemented: `DenseNetwork` and `RecurrentNetwork`. For `RecurrentNetwork`, you can specify a sequence length for a series of features which the neural network will use as input. However, I find that `DenseNetwork` works the best for this application. By default, the sequence length `seq_length` is kept as 1, which it should be for `DenseNetwork`. To change the number of hidden neurons, you can change the setting `hidden_neurons` in the instance of `RacingAgent`. Relatively few neurons work well, such as `[64, 32, 16]`. This means that hidden layer 1 has 64 neurons, hidden layer 2 has 32 neurons and hidden layer 3 has 16 neurons. The pretrained agent `agent_dense` has `hidden_neurons = [32, 32, 32]`. 
 
 ## Testing your trained agent
+To test a trained agent, you can use the script `game.py`. You can either change the name of the agent and the racetrack in the script itself, or provide command line arguments. The argument `--agent-name` specifies the name of the agent to be loaded from the folder `build`. The argument `--track_name` specifies the name of the race track to be loaded from the folder `tracks`. For example, you can run 
 
+```
+python game.py --agent-name agent_dense --track-name racetrack1
+```
+
+which will load the pretrained agent `agent_dense` and try it out on the track `racetrack1`.
