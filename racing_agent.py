@@ -166,10 +166,10 @@ class RacingAgent:
                     self.network_type = network_dict[lines[0].split()[-1]]
                     parameters = (lines[1].split()[-1]).split('_')
                     self.network_params = [int(param) for param in parameters]
-                    self.network = self.network_type(self.network_params).to(device)
             except:
                 print("File " + network_param_name + " not found. Using stored settings instead.")
-                self.network = self.network_type(self.network_params).to(device)
+            self.network = self.network_type(self.network_params).to(device)
+            self.target_network = self.network_type(self.network_params).to(device)
             self.network.load_state_dict(torch.load(network_file_name))
             self.target_network.load_state_dict(self.network.state_dict())
         else:

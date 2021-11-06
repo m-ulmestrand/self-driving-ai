@@ -14,8 +14,7 @@ from copy import deepcopy
 
 
 box_size = 100
-race_car = RacingAgent(box_size=box_size, seq_length=1, network_type=DenseNetwork,
-                       hidden_neurons=(32,32,32), buffer_size=1)
+race_car = RacingAgent(box_size=box_size, buffer_size=1)
 
 # Change track to the one you want to try out.
 # Tracks are saved at ./tracks

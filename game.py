@@ -12,12 +12,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 from init_cuda import init_cuda
 from collision_handling import get_lidar_lines
+import sys
 
 
-def main():
+def main(args):
     box_size = 100
-    race_car = RacingAgent(box_size=box_size, seq_length=1, 
-                        network_type=DenseNetwork, hidden_neurons=(32,32,32), buffer_size=1)
+    race_car = RacingAgent(box_size=box_size, buffer_size=1)
 
     # Change race_car.save_name use an agent of your choice.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
@@ -60,4 +60,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
