@@ -1,7 +1,7 @@
 '''
 This script allows you to train an agent on a set of tracks.
 Provide the tracks you want to train on by feeding the list training_track_numbers to the agent.
-If you want to train on tracks 0,3,4,5 and 8, construct the list [0, 3, 4, 5, 8].
+If you want to train on tracks 0, 3, 4, 5 and 8, construct the list [0, 3, 4, 5, 8].
 Other parameters can be changed as well, although the base settings should work fine.
 
 Author: Mattias Ulmestrand
