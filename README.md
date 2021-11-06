@@ -7,7 +7,7 @@ https://user-images.githubusercontent.com/54723095/139694716-0a3dcdaa-ae4e-4c1c-
 
 
 
-Example of a neural network controlling the car model, trained for a few minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop!
+Example of a neural network controlling the car model, trained for around 5 minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop!
 
 
 
@@ -50,4 +50,4 @@ The network outputs Q-values for:
 By changing the angle of the wheels, the turning radius is changed as well. There is a smallest allowed turning radius, which decides the angular velocity of the car. The angular velocity is found as the quotient between the speed of the car and the signed turning radius. The turning radius is in turn found as the cotangent of the angle of the wheels, multiplied by the minimum turning radius.
 
 ## Dependencies
-The neural network is designed with PyTorch (1.8.1+cu102). In addition, NumPy (1.18.5) is used for many operations and information storing. To remove a lot of computational burden, I have used Numba (0.51.2) for several movement handling operations, collision detections, as well as distance measuring etc.
+The neural network is designed with PyTorch (1.8.1+cu102). In addition, NumPy (1.18.5) is used for many operations and information storing. To remove a lot of computational burden, I have used Numba (0.51.2) for several movement handling operations, collision detections, as well as distance measuring etc. For parsing command line arguments, argparse (1.4.0) is used.
