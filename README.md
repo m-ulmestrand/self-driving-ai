@@ -76,4 +76,4 @@ To test a trained agent, you can use the script `game.py`. You can either change
 python game.py --agent-name agent_dense --track-name racetrack1
 ```
 
-which will load the pretrained agent `agent_dense` and try it out on the track `racetrack1`.
+in the command line, which will load the pretrained agent `agent_dense` and try it out on the track `racetrack1`.
