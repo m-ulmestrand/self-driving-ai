@@ -166,8 +166,9 @@ class RacingAgent:
                     self.network_type = network_dict[lines[0].split()[-1]]
                     parameters = (lines[1].split()[-1]).split('_')
                     self.network_params = [int(param) for param in parameters]
+                    self.seq_length = int(lines[2].split()[-1])
             except:
-                print("File " + network_param_name + " not found. Using stored settings instead.")
+                print("File " + network_param_name + " not found or incorrectly formatted. Using stored settings instead.")
             self.network = self.network_type(self.network_params).to(device)
             self.target_network = self.network_type(self.network_params).to(device)
             self.network.load_state_dict(torch.load(network_file_name))
@@ -184,7 +185,8 @@ class RacingAgent:
         
         with open("build/" + self.save_name + ".txt", 'w') as save_file:
             save_file.write("Network type:\t" + self.network_type.__name__ + '\n')
-            save_file.write("Network parameters:\t" + '_'.join([str(param) for param in self.network_params]))
+            save_file.write("Network parameters:\t" + '_'.join([str(param) for param in self.network_params]) + '\n')
+            save_file.write("Sequence length:\t" + str(self.seq_length))
 
     def store_track(self, track_name):
         '''Stores a track in the agent class instance'''

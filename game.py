@@ -16,6 +16,7 @@ import sys
 
 
 def main(args):
+    
     box_size = 100
     race_car = RacingAgent(box_size=box_size, buffer_size=1)
 

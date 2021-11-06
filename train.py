@@ -16,11 +16,11 @@ import sys
 
 def main():
     box_size = 100
-    runs = 500
-    epsilon_scale = 1000
+    runs = 1500
+    epsilon_scale = 1500
     training_track_numbers = [0,1,2,3,4,5,6,7,8]
     race_car = RacingAgent(box_size=box_size, epsilon_scale=epsilon_scale, buffer_behaviour="discard_old",
-                        epsilon_start=1.0, epsilon_final=0.1, r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
+                        epsilon_start=1.0, epsilon_final=0., r_min=5., buffer_size=5000, seq_length=1, network_type=DenseNetwork,
                         hidden_neurons=(32,32,32), target_sync=150, generation_length=1000, track_numbers=training_track_numbers)
 
     # Change this to initialize and train a new agent.
