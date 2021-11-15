@@ -9,7 +9,7 @@ import numpy as np
 import os.path
 
 
-name = "racetrack15"
+name = "racetrack12"
 track_nodes = np.load(f"tracks/{name}.npy")
 outer_line = np.zeros_like(track_nodes)
 inner_line = np.zeros_like(track_nodes)
