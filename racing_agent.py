@@ -16,9 +16,6 @@ from init_cuda import init_cuda
 import os.path
 
 
-device = init_cuda()
-
-
 class RacingAgent:
     def __init__(self, box_size: int = 100, car_width: float = 1., car_length: float = 4., lane_width: float = 5.,
                  r_min: float = 4., turning_speed: float = 0.25, speed: float = 1., epsilon_start: float = 1.,
@@ -26,7 +23,7 @@ class RacingAgent:
                  learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
                  buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
                  hidden_neurons: tuple = (32, 32), seq_length: int = 1, generation_length: int = 2000, 
-                 track_numbers=np.arange(8), target_sync: int = 150, append_scale: int = 20):
+                 track_numbers=np.arange(8), target_sync: int = 150, append_scale: int = 20, device: str = "cuda:0"):
 
         # box_size: Size of the box which the track is contained in. 
         # This does not ever need to be changed unless you change it in draw_track.
@@ -108,6 +105,7 @@ class RacingAgent:
         self.target_network.eval()
         self.seq_length = seq_length
         self.target_sync_period = target_sync
+        self.device = init_cuda(device)
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
@@ -169,8 +167,8 @@ class RacingAgent:
                     self.seq_length = int(lines[2].split()[-1])
             except:
                 print("File " + network_param_name + " not found or incorrectly formatted. Using stored settings instead.")
-            self.network = self.network_type(self.network_params).to(device)
-            self.target_network = self.network_type(self.network_params).to(device)
+            self.network = self.network_type(self.network_params).to(self.device)
+            self.target_network = self.network_type(self.network_params).to(self.device)
             self.network.load_state_dict(torch.load(network_file_name))
             self.target_network.load_state_dict(self.network.state_dict())
         else:
@@ -328,7 +326,7 @@ class RacingAgent:
         self.states[self.current_step] = self.get_features()[0]
 
     def forward_pass(self, features):
-        return self.network(features.to(device))
+        return self.network(features.to(self.device))
 
     def choose_action(self, epsilon=None):
         '''Chooses an action depending on value of epsilon'''
@@ -351,7 +349,7 @@ class RacingAgent:
             else:
                 features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
             self.old_states[self.current_step] = features[0]
-            output = self.network(features.to(device))
+            output = self.network(features.to(self.device))
             action = torch.argmax(output).detach().cpu().item()
 
         self.actions[self.current_step] = action
@@ -366,7 +364,7 @@ class RacingAgent:
             features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])[0]
 
         features = torch.stack(features_list)
-        outputs = self.network(features.to(device))
+        outputs = self.network(features.to(self.device))
         actions = torch.argmax(outputs, dim=1).detach().cpu()
 
         for i in np.arange(len(agents)):
@@ -478,12 +476,12 @@ class RacingAgent:
                     self.optimizer.zero_grad()
                     end_index += batch_size
                     batch_inds = indices[start_index:end_index]
-                    q_old = self.network(self.old_states_buffer[batch_inds].to(device))
-                    q_new = self.target_network(self.states_buffer[batch_inds].to(device))
+                    q_old = self.network(self.old_states_buffer[batch_inds].to(self.device))
+                    q_new = self.target_network(self.states_buffer[batch_inds].to(self.device))
 
                     q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
                     q_new_max = torch.max(q_new, dim=1)[0]
-                    loss = self.loss_function(self.rewards_buffer[batch_inds].to(device) + q_new_max, q_old_a)
+                    loss = self.loss_function(self.rewards_buffer[batch_inds].to(self.device) + q_new_max, q_old_a)
                     loss.backward()
                     self.optimizer.step()
                     self.total_loss += loss.detach().cpu().item()
