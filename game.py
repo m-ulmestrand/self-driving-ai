@@ -51,7 +51,6 @@ def main():
         race_car.save_name = args.agent_name
 
     race_car.store_track(track)
-    original_pos = np.copy(race_car.position)
 
     fig, ax = plt.subplots()
     inner_line = np.load(f'tracks/{track}_inner_bound.npy')
@@ -76,6 +75,9 @@ def main():
         ax.plot(xs, ys, color='limegreen')
         ax.set_xlim(0, box_size)
         ax.set_ylim(0, box_size)
+        net_out = race_car.forward_pass(race_car.states)[0].cpu().detach().numpy()
+        output_string = "".join(["{}".format(int(feature)).ljust(4) for feature in net_out])
+        ax.set_title(output_string)
         ax.set_aspect('equal', adjustable='box')
         fig.canvas.draw()
         fig.canvas.flush_events()

@@ -327,6 +327,9 @@ class RacingAgent:
         self.move()
         self.states[self.current_step] = self.get_features()[0]
 
+    def forward_pass(self, features):
+        return self.network(features.to(device))
+
     def choose_action(self, epsilon=None):
         '''Chooses an action depending on value of epsilon'''
 
@@ -348,7 +351,7 @@ class RacingAgent:
             else:
                 features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
             self.old_states[self.current_step] = features[0]
-            output = self.network(features.to(device).double())
+            output = self.network(features.to(device))
             action = torch.argmax(output).detach().cpu().item()
 
         self.actions[self.current_step] = action
@@ -363,7 +366,7 @@ class RacingAgent:
             features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])[0]
 
         features = torch.stack(features_list)
-        outputs = self.network(features.to(device).double())
+        outputs = self.network(features.to(device))
         actions = torch.argmax(outputs, dim=1).detach().cpu()
 
         for i in np.arange(len(agents)):
