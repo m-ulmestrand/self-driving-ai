@@ -1,8 +1,8 @@
 import torch
 
 
-def init_cuda():
-    if torch.cuda.is_available():
+def init_cuda(cuda=True):
+    if torch.cuda.is_available() and cuda:
         device = torch.device("cuda:0")
     else:
         device = torch.device("cpu")
