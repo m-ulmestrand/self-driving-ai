@@ -53,29 +53,6 @@ def mouse_move(event):
     mouse_x, mouse_y = event.xdata, event.ydata
 
 
-'''def add_borders(node1, node2, node3, i):
-    x_diff1, y_diff1 = node2 - node1
-    x_diff2, y_diff2 = node3 - node2
-    angle1 = np.arctan2(y_diff1, x_diff1)
-    angle2 = np.arctan2(y_diff2, x_diff2)
-    distance = np.sqrt(x_diff1 ** 2 + y_diff1 ** 2)
-
-    x_diff_norm = x_diff1 / distance
-    y_diff_norm = y_diff1 / distance
-    
-    # Orthogonal to [x_diff, y_diff]
-    width_vect = np.array([-y_diff_norm, x_diff_norm]) * track_width
-
-    d_theta = angle2 - angle1
-    surplus = track_width * np.sin(d_theta)
-    if np.abs(surplus) < distance:
-        surplus = np.sign(surplus) * distance
-    outer_line[i] = node1 - width_vect
-    outer_line[i + 1] = outer_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance + surplus)
-    inner_line[i] = node1 + width_vect
-    inner_line[i + 1] = inner_line[i] + np.array([x_diff_norm, y_diff_norm]) * (distance - surplus)'''
-
-
 def arctan_2pi(y, x):
     result = np.arctan2(y, x)
     return result + np.pi
