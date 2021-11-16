@@ -1,4 +1,5 @@
-'''If you are unsatisfied with the borders of a track, you can make changes, plot it and save it here.
+'''
+If you are unsatisfied with the borders of a track, you can make changes, plot it and save it here.
 
 Author: Mattias Ulmestrand
 '''

@@ -9,6 +9,8 @@ This will produce yanks in the track - dealing with that problem is difficult.
 
 When exiting the plot, you will be asked if you want to save the track.
 Press yes/y or no/n to confirm your answer (case insensitive).
+
+Author: Mattias Ulmestrand
 '''
 
 

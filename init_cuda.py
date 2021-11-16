@@ -1,3 +1,10 @@
+'''
+Simple script for initialising which device neural network calculations are done on.
+
+Author: Mattias Ulmestrand
+'''
+
+
 import torch
 
 
