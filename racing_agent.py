@@ -152,9 +152,13 @@ class RacingAgent:
         if name is None:
             name = self.save_name
         
+        if name.startswith("final_"):
+            network_param_name = 'build/' + name[6:] + '.txt'
+        else:
+            network_param_name = 'build/' + name + '.txt'
+
         name = 'build/' + name
         network_file_name = name + '.pt'
-        network_param_name = name + '.txt'
         if os.path.isfile(network_file_name):
             try:
                 with open(network_param_name) as parameter_file:
@@ -457,11 +461,11 @@ class RacingAgent:
             self.max_node = len(self.node_passing_times)
             self.save_network()
 
-        if self.current_step % self.target_sync_period == 0:
-            self.target_network.load_state_dict(self.network.state_dict())
-
     def reinforce(self, epochs=1):
         '''Deep Q-learning reinforcement step'''
+        if self.generation % self.target_sync_period == 0:
+            self.target_network.load_state_dict(self.network.state_dict())
+
         if self.rewards_buffer.shape[0] > self.batch_size:
             self.network.train()
             self.target_network.train()

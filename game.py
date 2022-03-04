@@ -35,12 +35,12 @@ def main():
     # Change race_car.save_name use an agent of your choice.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
     # Both the final agent and the best performing one are saved.
-    race_car.save_name = 'agent_dense'
+    race_car.save_name = 'final_agent_dense3'
     race_car.load_network(name=race_car.save_name)
 
     # Change track to the one you want to try out.
     # Tracks are saved at ./tracks
-    track = "racetrack12"
+    track = "racetrack1"
 
     # If you have specified racetrack or agent in command line, these will be used instead.
     if args.track_name is not None:
