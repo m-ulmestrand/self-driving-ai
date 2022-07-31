@@ -8,7 +8,6 @@ Author: Mattias Ulmestrand
 from matplotlib import pyplot as plt
 from draw_track import add_borders
 import numpy as np
-import os.path
 
 
 name = "racetrack15"
