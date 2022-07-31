@@ -27,6 +27,7 @@ class RacingAgent:
 
         # box_size: Size of the box which the track is contained in. 
         # This does not ever need to be changed unless you change it in draw_track.
+
         # car_width, car_length: Width and length of the car
         # lane_width: width of the track
         # r_min: Minimal turning radius
@@ -51,7 +52,7 @@ class RacingAgent:
         # track_numbers: Which racetrack numbers will be used for training
         # target_sync: How long the target network is kept constant
         # append_scale: Determines how likely it is to append to replay buffer for a certain number of passed nodes.
-        # If the number of passed nodes is greater than append_scale, it will certainly append
+        # If the number of passed nodes is greater than append_scale, it will always append
 
         # Various car model parameters
         self.box_size = box_size
@@ -212,7 +213,7 @@ class RacingAgent:
         '''Moves the agent with current settings'''
         speed = np.sqrt(np.sum(self.velocity ** 2))
         angular_vel = speed / (self.r_min * np.tan(np.pi/2 - self.turning_angle))
-        self.angle += angular_vel
+        self.angle = (self.angle + angular_vel) % (2 * np.pi)
         self.velocity[0] = np.cos(self.angle) * speed
         self.velocity[1] = np.sin(self.angle) * speed
         self.position += self.velocity
@@ -328,7 +329,7 @@ class RacingAgent:
     def forward_pass(self, features):
         return self.network(features.to(self.device))
 
-    def choose_action(self, epsilon=None):
+    def choose_action(self, epsilon=None, return_output: bool = False):
         '''Chooses an action depending on value of epsilon'''
 
         # Exploration
@@ -354,6 +355,9 @@ class RacingAgent:
 
         self.actions[self.current_step] = action
         self.take_action(action)
+
+        if return_output:
+            return action, output
 
     def multi_agent_forward_pass(self, agents: list):
         '''Used for simultaneously deciding what actions to take for an ensemble of cars'''

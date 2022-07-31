@@ -40,7 +40,7 @@ def main():
 
     # Change track to the one you want to try out.
     # Tracks are saved at ./tracks
-    track = "racetrack12"
+    track = "racetrack10"
 
     # If you have specified racetrack or agent in command line, these will be used instead.
     if args.track_name is not None:
