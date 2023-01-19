@@ -1,4 +1,5 @@
-'''Auxiliary script for handling collisions and other things
+'''
+Auxiliary script for handling collisions and other things
 
 Author: Mattias Ulmestrand
 '''

@@ -7,23 +7,48 @@ Author: Mattias Ulmestrand
 
 
 import torch
-from torch import nn
+from torch import nn, tensor
 import numpy as np
 from typing import Literal
 from racing_network import DenseNetwork, RecurrentNetwork
 from collision_handling import *
 from init_cuda import init_cuda
+import math
 import os.path
+import json
 
 
 class RacingAgent:
-    def __init__(self, box_size: int = 100, car_width: float = 1., car_length: float = 4., lane_width: float = 5.,
-                 r_min: float = 4., turning_speed: float = 0.25, speed: float = 1., epsilon_start: float = 1.,
-                 epsilon_scale: int = 2000, epsilon_final: float = 0.01, buffer_size: int = 5000,
-                 learning_rate: float = 0.001, batch_size: int = 100, network_type: nn.Module = DenseNetwork,
-                 buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-                 hidden_neurons: tuple = (32, 32), seq_length: int = 1, generation_length: int = 2000, 
-                 track_numbers=np.arange(8), target_sync: int = 150, append_scale: int = 20, device: str = "cuda:0"):
+    def __init__(
+        self, 
+        box_size: int = 100, 
+        car_width: float = 1., 
+        car_length: float = 4., 
+        lane_width: float = 5.,
+        r_min: float = 4., 
+        turning_speed: float = 0.25, 
+        speed: float = 1., 
+        acceleration: float = 0.1,
+        deceleration: float = 0.9, 
+        speed_lower: float = 0.5, 
+        epsilon_start: float = 1., 
+        drift: float = 0.,
+        turn_radius_decay: float = 1., 
+        epsilon_scale: int = 2000, 
+        epsilon_final: float = 0.01, 
+        buffer_size: int = 5000,
+        learning_rate: float = 0.001, 
+        batch_size: int = 100, 
+        network_type: nn.Module = DenseNetwork,
+        buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
+        hidden_neurons: tuple = (32, 32), 
+        seq_length: int = 1, 
+        generation_length: int = 2000, 
+        track_numbers=np.arange(8), 
+        target_sync: int = 150, 
+        append_scale: int = 20, 
+        device: str = "cuda:0"
+    ):
 
         # box_size: Size of the box which the track is contained in. 
         # This does not ever need to be changed unless you change it in draw_track.
@@ -33,6 +58,13 @@ class RacingAgent:
         # r_min: Minimal turning radius
         # turning_speed: How fast the steering wheel can be turned
         # speed: Maximal speed of the car
+        # acceleration: How fast the agent can accelerate 
+        # deceleration: How fast the agent can decelerate 
+        # speed_lower: Fraction of maximum speed that the car can minimally decelerate to
+        # drift: How fast the car can catch up with steering angle. 
+        # 0.0: instant. 1.0: can't catch up at all.
+        # turn_radius_decay: Controls how much the turning radius decays for higher speeds. 
+        # Range: 1.0 - inf.
         
         # epsilon_start: Start value of epsilon during training
         # epsilon_scale: How fast epsilon decreases. Higher means slower
@@ -62,19 +94,30 @@ class RacingAgent:
         self.r_min = r_min
         self.max_speed = speed
         self.velocity = np.array([0., 0.])
+        self.drift_velocity = self.velocity.copy()
         self.n_actions = 4
         self.n_inputs = 7
         self.angle = 0
+        self.drift_angle = 0
         self.position = np.array([0., 0.])
+        self.prev_pos = self.position.copy()
+        self.distance = 0.
         self.car_bounds = np.zeros((8, 2))
         self.angles = np.array([-0.4, -0.2, 0.2, 0.4]) * np.pi
         self.current_node = 0
-        self.max_node = 0
+        self.max_distance = 0
         self.turning_angle = 0
         self.turning_speed = turning_speed
         self.save_name = "racing_agent_improved"
         self.track_numbers = track_numbers
         self.max_angle = np.pi / 4
+        self.acc = acceleration
+        self.dec = deceleration
+        self.drift = drift
+        self.speed_lower = speed_lower
+        self.max_angular_vel = speed / (self.r_min * math.tan(math.pi/2 - self.max_angle))
+        self.angle_buffer = 0
+        self.turn_radius_decay = turn_radius_decay
 
         # Controlling exploration during Q-learning
         self.epsilon_start = epsilon_start
@@ -100,8 +143,8 @@ class RacingAgent:
         self.current_step = 0
         self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
         self.network_type = network_type
-        self.network = network_type(self.network_params)
-        self.target_network = network_type(self.network_params)
+        self.network = network_type(self.network_params, device)
+        self.target_network = network_type(self.network_params, device)
         self.target_network.load_state_dict(self.network.state_dict())
         self.target_network.eval()
         self.seq_length = seq_length
@@ -129,10 +172,15 @@ class RacingAgent:
         self.generation += 1
         self.current_step = 0
         self.position = np.copy(self.track_nodes[0])
+        self.prev_pos = self.position.copy()
+        self.distance = 0.
         self.turning_angle = 0
         diff = self.track_nodes[1] - self.track_nodes[0]
         self.angle = np.arctan2(diff[1], diff[0])
+        self.drift_angle = self.angle.copy()
         self.velocity = diff / np.sqrt(np.sum(diff**2)) * self.max_speed * 0.5
+        self.drift_velocity = self.velocity.copy()
+        self.prev_vel = np.array([0, 0], dtype=float)
         self.rewards = torch.zeros(self.generation_length, dtype=torch.double)
         self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
@@ -148,28 +196,28 @@ class RacingAgent:
         self.store_random_track()
         self.reinitialise()
 
-    def load_network(self, name=None):
+    def load_network(self, name: str = None):
         '''Loads a saved network'''
         if name is None:
             name = self.save_name
         
         if name.startswith("final_"):
-            network_param_name = 'build/' + name[6:] + '.txt'
+            network_param_name = "./build/" + name[6:] + ".json"
         else:
-            network_param_name = 'build/' + name + '.txt'
+            network_param_name = "./build/" + name + ".json"
 
-        name = 'build/' + name
-        network_file_name = name + '.pt'
+        name = "build/" + name
+        network_file_name = name + ".pt"
+
         if os.path.isfile(network_file_name):
             try:
                 with open(network_param_name) as parameter_file:
-                    lines = parameter_file.readlines()
+                    model_config = json.load(parameter_file)
                     network_dict = {DenseNetwork.__name__: DenseNetwork,
                                     RecurrentNetwork.__name__: RecurrentNetwork}
-                    self.network_type = network_dict[lines[0].split()[-1]]
-                    parameters = (lines[1].split()[-1]).split('_')
-                    self.network_params = [int(param) for param in parameters]
-                    self.seq_length = int(lines[2].split()[-1])
+                    self.network_type = network_dict[model_config["network_type"]]
+                    self.network_params = model_config["n_neurons"]
+                    self.seq_length = model_config["seq_length"]
             except:
                 print("File " + network_param_name + " not found or incorrectly formatted. Using stored settings instead.")
             self.network = self.network_type(self.network_params).to(self.device)
@@ -178,20 +226,24 @@ class RacingAgent:
             self.target_network.load_state_dict(self.network.state_dict())
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
+        
 
-    def save_network(self, name=None):
+    def save_network(self, name: str = None):
         '''Saves the current network'''
         if name is None:
             name = self.save_name
-        name = 'build/' + name + '.pt'
+        name = "build/" + name + ".pt"
         torch.save(self.network.state_dict(), name)
         
-        with open("build/" + self.save_name + ".txt", 'w') as save_file:
-            save_file.write("Network type:\t" + self.network_type.__name__ + '\n')
-            save_file.write("Network parameters:\t" + '_'.join([str(param) for param in self.network_params]) + '\n')
-            save_file.write("Sequence length:\t" + str(self.seq_length))
+        with open("build/" + self.save_name + ".json", 'w') as save_file:
+            model_config = {
+                "network_type": self.network_type,
+                "n_neurons": self.network_params,
+                "seq_length": self.seq_length
+            }
+            json.dump(model_config, save_file, indent=4)
 
-    def store_track(self, track_name):
+    def store_track(self, track_name: str):
         '''Stores a track in the agent class instance'''
         npy = '.npy'
         track_name = 'tracks/' + track_name
@@ -201,7 +253,9 @@ class RacingAgent:
         self.position = np.copy(self.track_nodes[0])
         diff = self.track_nodes[1] - self.track_nodes[0]
         self.velocity = diff / np.sqrt(np.sum(diff ** 2)) * self.max_speed * 0.5
+        self.drift_velocity = self.velocity.copy()
         self.angle = np.arctan2(diff[1], diff[0])
+        self.drift_angle = self.angle.copy()
         self.car_bounds = car_lines(self.position, self.angle, self.car_width, self.car_length)
 
     def store_random_track(self):
@@ -215,14 +269,21 @@ class RacingAgent:
 
     def move(self):
         '''Moves the agent with current settings'''
-        speed = np.sqrt(np.sum(self.velocity ** 2))
-        angular_vel = speed / (self.r_min * np.tan(np.pi/2 - self.turning_angle))
-        self.angle = (self.angle + angular_vel) % (2 * np.pi)
-        self.velocity[0] = np.cos(self.angle) * speed
-        self.velocity[1] = np.sin(self.angle) * speed
-        self.position += self.velocity
+        speed = math.sqrt(np.sum(self.velocity ** 2))
+        angular_vel = speed * self.turn_radius_decay ** (-speed) / (self.r_min * math.tan(math.pi/2 - self.turning_angle))
+        self.angle = (self.angle + angular_vel) % (2 * math.pi)
+        self.angle_buffer += angular_vel
+        max_angular_vel = self.max_angular_vel * (1 - self.drift)
+        drift_angular_vel = max(min(max_angular_vel, self.angle_buffer), -max_angular_vel)
+        self.drift_angle = (self.drift_angle + drift_angular_vel) % (2 * math.pi)
+        self.angle_buffer -= drift_angular_vel
+        self.velocity[0] = math.cos(self.angle) * speed
+        self.velocity[1] = math.sin(self.angle) * speed
+        self.drift_velocity[0] = math.cos(self.drift_angle) * speed
+        self.drift_velocity[1] = math.sin(self.drift_angle) * speed
+        self.position += self.drift_velocity
 
-    def get_features(self, other_agents=None):
+    def get_features(self, other_agents: list = None):
         '''Returns the features: LiDAR line measurements, speed and angle'''
         position = self.position
         nodes = self.track_nodes
@@ -236,6 +297,8 @@ class RacingAgent:
             self.current_node = node_index
             self.node_passing_times = np.append(self.node_passing_times, self.current_step)
             self.passed_node = True
+            self.distance += np.sqrt(np.sum((self.position - self.prev_pos) ** 2))
+            self.prev_pos = self.position.copy()
 
         dist_to_node = np.sqrt(np.sum((position - nodes[node_index]) ** 2))
         vector = np.array([np.cos(self.angle), np.sin(self.angle)])
@@ -276,13 +339,13 @@ class RacingAgent:
 
         car_collides = True if dist_to_node > self.lane_width else False
         if not car_collides:
-            for node_id in (node_index, node_index+1):
-                for i in np.arange(3):
-                    if line_intersect_distance(car_bounds[2 * i], car_bounds[2 * i + 1], track_outer[node_id],
+            for node_id in (node_index, node_index + 1):
+                for i in (np.arange(3) * 2):
+                    if line_intersect_distance(car_bounds[i], car_bounds[i + 1], track_outer[node_id],
                                                track_outer[node_id + 1]):
                         car_collides = True
                         break
-                    elif line_intersect_distance(car_bounds[2 * i], car_bounds[2 * i + 1], track_inner[node_id],
+                    elif line_intersect_distance(car_bounds[i], car_bounds[i + 1], track_inner[node_id],
                                                  track_inner[node_id + 1]):
                         car_collides = True
                         break
@@ -294,7 +357,7 @@ class RacingAgent:
             if self.current_step != 0:
                 features[0, :-1] = self.old_states[self.current_step, 1:]
             else:
-                for i in range(self.seq_length-1):
+                for i in range(self.seq_length - 1):
                     features[0, i] = features[0, -1]
 
         self.has_collided = car_collides
@@ -308,24 +371,24 @@ class RacingAgent:
         min_angle = -self.max_angle
         self.turning_angle = min_angle if self.turning_angle < min_angle else self.turning_angle - self.turning_speed
 
-    def take_action(self, action):
+    def take_action(self, action: int):
         '''Performs a selected action'''
-        current_speed = np.sqrt(np.sum(self.velocity ** 2))
+        current_speed = math.sqrt(np.sum(self.velocity ** 2))
         if action == 0:
             self.turn_left()
         elif action == 1:
             self.turn_right()
         elif action == 2 and current_speed < self.max_speed:
             # Accelerate
-            self.velocity[0] += np.cos(self.angle) * 0.1
-            self.velocity[1] += np.sin(self.angle) * 0.1
-            new_speed = np.sqrt(np.sum(self.velocity ** 2))
+            self.velocity[0] += math.cos(self.angle) * self.acc
+            self.velocity[1] += math.sin(self.angle) * self.acc
+            new_speed = math.sqrt(np.sum(self.velocity ** 2))
             if new_speed > self.max_speed:
                 self.velocity *= (self.max_speed / new_speed)
         else:
             # Decelerate
-            if current_speed > 0.5 * self.max_speed:
-                self.velocity = self.velocity * 0.9
+            if current_speed > self.speed_lower * self.max_speed:
+                self.velocity = self.velocity * self.dec
 
         self.move()
         self.states[self.current_step] = self.get_features()[0]
@@ -333,7 +396,7 @@ class RacingAgent:
     def forward_pass(self, features):
         return self.network(features.to(self.device))
 
-    def choose_action(self, epsilon=None, return_output: bool = False):
+    def choose_action(self, epsilon: float = None, return_hidden_states: bool = False):
         '''Chooses an action depending on value of epsilon'''
 
         # Exploration
@@ -343,7 +406,9 @@ class RacingAgent:
             if self.current_step == 0:
                 self.old_states[self.current_step] = self.get_features()[0]
             else:
-                self.old_states[self.current_step] = self.states[self.current_step-1].reshape((self.seq_length, self.n_inputs))
+                self.old_states[self.current_step] = \
+                    self.states[self.current_step-1]. \
+                    reshape((self.seq_length, self.n_inputs))
 
         # Exploitation
         else:
@@ -354,31 +419,42 @@ class RacingAgent:
             else:
                 features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
             self.old_states[self.current_step] = features[0]
-            output = self.network(features.to(self.device))
+            
+            if return_hidden_states:
+                output, h_states, edges = self.network(features.to(self.device), True)
+            else:
+                output = self.network(features.to(self.device))
             action = torch.argmax(output).detach().cpu().item()
 
         self.actions[self.current_step] = action
         self.take_action(action)
 
-        if return_output:
-            return action, output
+        if return_hidden_states:
+            return output, h_states, edges
 
-    def multi_agent_forward_pass(self, agents: list):
+    def multi_agent_choose_action(self, agents: list):
         '''Used for simultaneously deciding what actions to take for an ensemble of cars'''
         n_agents = len(agents)
         features_list = [0] * n_agents
 
         for i in np.arange(n_agents):
-            features_list[i] = agents[i].get_features([agent for j, agent in enumerate(agents) if j != i])[0]
+            other_agents = [agent for j, agent in enumerate(agents) if j != i]
+            features_list[i] = agents[i].get_features(other_agents)[0]
 
         features = torch.stack(features_list)
         outputs = self.network(features.to(self.device))
         actions = torch.argmax(outputs, dim=1).detach().cpu()
 
-        for i in np.arange(len(agents)):
-            agents[i].take_action(actions[i])
+        for agent, action in zip(agents, actions):
+            agent.take_action(action)
 
-    def append_tensors(self, rewards, actions, old_states, states):
+    def append_tensors(
+        self, 
+        rewards: tensor, 
+        actions: tensor, 
+        old_states: tensor, 
+        states: tensor
+    ):
         '''Appends to the replay buffer'''
         buffer_current_size = self.rewards_buffer.shape[0]
         new_size = rewards.shape[0]
@@ -461,11 +537,11 @@ class RacingAgent:
             self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
                                 self.old_states[:self.current_step], self.states[:self.current_step])
 
-        if len(self.node_passing_times) >= self.max_node:
-            self.max_node = len(self.node_passing_times)
+        if self.distance > self.max_distance:
+            self.max_distance = self.distance.copy()
             self.save_network()
 
-    def reinforce(self, epochs=1):
+    def reinforce(self, n_epochs: int = 1):
         '''Deep Q-learning reinforcement step'''
         if self.generation % self.target_sync_period == 0:
             self.target_network.load_state_dict(self.network.state_dict())
@@ -479,7 +555,7 @@ class RacingAgent:
 
             end_index = 0
             start_index = 0
-            for epoch in range(epochs):
+            for epoch in range(n_epochs):
                 while end_index < self.rewards_buffer.shape[0]:
                     self.optimizer.zero_grad()
                     end_index += batch_size
@@ -494,5 +570,5 @@ class RacingAgent:
                     self.optimizer.step()
                     self.total_loss += loss.detach().cpu().item()
                     start_index += batch_size
-            self.total_loss /= epochs
+            self.total_loss /= n_epochs
             self.target_network.eval()
