@@ -10,7 +10,7 @@ https://user-images.githubusercontent.com/54723095/213485453-549531cf-d88c-4ea8-
 
 
 
-Example of a neural network controlling the car model, trained for around 5 minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop! The neural network applied to previously unseen test tracks, as seen when drawing a new track and letting the agent race on it. Most tracks have not been used for training. We can even use several cars, asw seen in the end. At one point, a car overtakes another one.
+Example of a neural network controlling the car model, trained for around 5 minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop! The neural network generalizes well when applied to previously unseen test tracks, as seen when drawing a new track and letting the agent race on it. Most tracks have not been used for training. We can even use several cars, as seen in the end. At one point, a car overtakes another one.
 
 
 ## Neural network
