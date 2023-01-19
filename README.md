@@ -3,23 +3,14 @@ This project explores making a model of a car self-driving. The model is control
 
 
 
-https://user-images.githubusercontent.com/54723095/139694716-0a3dcdaa-ae4e-4c1c-bc35-b74df4faec78.mp4
 
 
-
-Example of a neural network controlling the car model, trained for around 5 minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop!
+https://user-images.githubusercontent.com/54723095/213485453-549531cf-d88c-4ea8-8318-29b157373c6d.mp4
 
 
 
 
-https://user-images.githubusercontent.com/54723095/139856396-8dd7224a-b57e-46e2-b873-5fa3d7892108.mp4
-
-The neural network applied to previously unseen test tracks.
-
-
-https://user-images.githubusercontent.com/54723095/139884525-9245135d-0381-4a14-a78f-5e6c9d83f8ec.mp4
-
-We can even use several cars. At one point, a car overtakes another one.
+Example of a neural network controlling the car model, trained for around 5 minutes on an NVIDIA GeForce RTX 3050 laptop GPU. That's right, just a few minutes, on a laptop! The neural network applied to previously unseen test tracks, as seen when drawing a new track and letting the agent race on it. Most tracks have not been used for training. We can even use several cars, asw seen in the end. At one point, a car overtakes another one.
 
 
 ## Neural network
