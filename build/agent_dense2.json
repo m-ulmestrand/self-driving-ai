@@ -1,0 +1,5 @@
+{
+    "network_type": "DenseNetwork",
+    "n_neurons": [7, 32, 32, 32, 4],
+    "seq_length": 1
+}
