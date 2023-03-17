@@ -15,25 +15,12 @@ Author: Mattias Ulmestrand
 
 
 from collision_handling import line_intersect_distance
-from matplotlib import pyplot as plt
-from typing import Callable, Tuple, List
+from typing import Callable
+from pygame import gfxdraw
 import numpy as np
-import keyboard
 import os.path
+import pygame
 import math
-
-
-# Mouse position placeholders
-mouse_x, mouse_y = 0, 0
-
-
-def keyboard_event():
-    return True if keyboard.is_pressed('a') else False
-
-
-def mouse_move(event):
-    global mouse_x, mouse_y
-    mouse_x, mouse_y = event.xdata, event.ydata
 
 
 def angle_change(v1: np.ndarray, v2: np.ndarray):
@@ -171,31 +158,34 @@ def main():
     # Width of the racetrack
     track_width = 5
 
-    fig, ax = plt.subplots()
-    fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id)
-    plt.plot()
-    plt.xlim(0, box_size)
-    plt.ylim(0, box_size)
-    ax.invert_yaxis()
-    ax.set_aspect('equal', adjustable='box')
-    fig.canvas.draw()
-    plt.show(block=False)
+    pygame.init()
+    screen_scale = 10
+    d *= screen_scale
+    screen = pygame.display.set_mode((box_size * screen_scale, box_size * screen_scale))
+    screen.fill("white")
+    pygame.display.update()
+    clock = pygame.time.Clock()
     node_nr = 0
     max_d_theta = 6
     mouse_x_prev = 0
     mouse_y_prev = 0
+    running = True
 
-    while plt.fignum_exists(fig.number):
-        button_pressed = keyboard_event()
-        if button_pressed:
-            plt.connect('motion_notify_event', mouse_move)
-            global mouse_x
+
+    while running:
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                running = False
+
+        keys = pygame.key.get_pressed() 
+        if keys[pygame.K_a]:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
             if mouse_x is None:
                 mouse_x = mouse_x_prev
             else:
                 mouse_x_prev = mouse_x
 
-            global mouse_y
             if mouse_y is None:
                 mouse_y = mouse_y_prev
             else:
@@ -229,8 +219,15 @@ def main():
 
                         node_nr += 1
                         nodes = np.append(nodes, np.array([[new_x, new_y]]), axis=0)
-                        plt.plot(nodes[:, 0], nodes[:, 1],
-                                color='black', linestyle='solid', marker='o', markersize='3')
+                        screen.fill("white")
+                        pygame.draw.aalines(screen, "black", False, nodes)
+
+                        for x, y in nodes:
+                            gfxdraw.filled_circle(screen, int(x), int(y), 5, (0, 0, 0))
+                            gfxdraw.aacircle(screen, int(x), int(y), 5, (0, 0, 0))
+
+                        pygame.display.update()
+                        clock.tick(60)
 
                     x_diff = mouse_x - nodes[0, 0]
                     y_diff = mouse_y - nodes[0, 1]
@@ -239,25 +236,59 @@ def main():
                         nodes = np.append(nodes, np.array([[mouse_x, mouse_y]]), axis=0)
                         nodes = np.append(nodes, np.array([[nodes[0, 0], nodes[0, 1]]]), axis=0)
                         break
-
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-
+    
+    screen.fill("white")
+    nodes_display = nodes.copy()
+    nodes /= screen_scale
     inner_line, outer_line = add_borders(nodes, track_width)
+    old_outer, old_inner = outer_line.copy(), inner_line.copy()
+
+    pygame.draw.aalines(screen, "black", False, nodes_display)
+    pygame.draw.aalines(screen, "black", False, outer_line * screen_scale)
+    pygame.draw.aalines(screen, "black", False, inner_line * screen_scale)
+
+    for x, y in nodes_display:
+        gfxdraw.filled_circle(screen, int(x), int(y), 5, (0, 0, 0))
+        gfxdraw.aacircle(screen, int(x), int(y), 5, (0, 0, 0))
+
+    pygame.display.update()
+    clock.tick(1)
+    screen.fill("white")
+
     for i in range(4, 10):
         remove_all_loops(inner_line, outer_line, i)
 
-    plt.plot(nodes[:, 0], nodes[:, 1],
-            color='black', linestyle='solid', marker='o', markersize='3')
+    pygame.draw.aalines(screen, "black", False, nodes_display)
+    pygame.draw.aalines(screen, "black", False, inner_line * screen_scale)
+    pygame.draw.aalines(screen, "black", False, outer_line * screen_scale)
 
-    plt.plot(outer_line[:, 0], outer_line[:, 1],
-            color='black', linestyle='solid')
-    plt.plot(inner_line[:, 0], inner_line[:, 1],
-            color='black', linestyle='solid')
+    for x, y in nodes_display:
+        gfxdraw.filled_circle(screen, int(x), int(y), 5, (0, 0, 0))
+        gfxdraw.aacircle(screen, int(x), int(y), 5, (0, 0, 0))
 
-    plt.show()
+    pygame.display.update()
+
+    running = True
+    while running: 
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+
     save_track = input("Save track? ")
+    if len(save_track) > 0:
+        if save_track.lower() != "no" and save_track.lower() != "n":
+            track = "tracks/demo_track"
+            np.save(f"{track}.npy", nodes)
+            np.save(f"{track}_inner_bound.npy", inner_line)
+            np.save(f"{track}_outer_bound.npy", outer_line)
 
+            old_track = f"{track}_old"
+            np.save(f"{old_track}_inner_bound.npy", old_inner)
+            np.save(f"{old_track}_outer_bound.npy", old_outer)
+
+    save_track = input("Save track? ")
     if len(save_track) > 0:
         if save_track.lower() != "no" and save_track.lower() != "n":
             i = 0
