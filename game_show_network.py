@@ -20,6 +20,7 @@ import math
 from time import perf_counter
 from typing import List
 from matplotlib.cm import get_cmap
+from numba import njit
 
 
 class Car(pygame.sprite.Sprite):
@@ -80,28 +81,29 @@ def draw_track(inner_track: np.ndarray,
     pygame.draw.aalines(screen, 'black', False, inner_track_scaled)
     pygame.draw.aalines(screen, 'black', False, outer_track_scaled)
 
-
+    
 def draw_network(x_vals: np.ndarray, 
                  y_vals: list,
                  node_vals: list,
                  edge_vals: list, 
                  screen: Surface):
 
-    '''cmap = get_cmap('seismic')
+    """cmap = get_cmap('seismic')
     for i, (x1, x2) in enumerate(zip(x_vals[:-1], x_vals[1:])):
-        edges = (1 - 1 / (1 + np.exp(-5 * edge_vals[i].T)))
+        norm_edge_vals = edge_vals[i] / np.abs(edge_vals[i].mean())
+        edges = (1 - 1 / (1 + np.exp(-0.2 * norm_edge_vals.T)))
 
         for j, y1 in enumerate(y_vals[i]):
             for k, y2 in enumerate(y_vals[i + 1]):
                 c = cmap(edges[j, k])
                 color = np.array(c)
                 color[:3] *= 255
-                color[-1] = 0.75
-                pygame.draw.aaline(screen, color, (x1, y1), (x2, y2))'''
+                color[-1] = 0.5
+                pygame.draw.aaline(screen, color, (x1, y1), (x2, y2))"""
 
     for i, ys in enumerate(y_vals[:-1]):
-        nodes = node_vals[i] / node_vals[i].max()
-        node_cols = (1 - 1 / (1 + np.exp(-5 * (nodes - 0.75)))).flatten()
+        nodes = (node_vals[i] / node_vals[i].max()).flatten()
+        node_cols = (1 - 1 / (1 + np.exp(-5 * (nodes - 0.75))))
         for j, y in enumerate(ys):
             c = node_cols[j] * 255
             # pygame.draw.circle(screen, (c, c, c), (x_vals[i], y), 10)
