@@ -1,5 +1,5 @@
 # Self driving car with Deep Q-learning
-This project explores making a model of a car self-driving. The model is controlled by a neural network which is trained with Q-learning. The environment for making custom tracks as well as collision detection is also built from scratch. Below is an example of the car driving on its own. The green lines are an illustration of how the car measures distance, which is used as features along with a couple other parameters.
+This project explores making a model of a car self-driving. The model is controlled by a neural network which is trained with Q-learning. The environment for making custom tracks as well as collision detection is also built from scratch. Below is an example of the car driving on its own. The red lines are an illustration of how the car measures distance, which is used as features along with a couple other parameters.
 
 
 
