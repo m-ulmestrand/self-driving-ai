@@ -241,7 +241,6 @@ def main():
     nodes_display = nodes.copy()
     nodes /= screen_scale
     inner_line, outer_line = add_borders(nodes, track_width)
-    old_outer, old_inner = outer_line.copy(), inner_line.copy()
 
     pygame.draw.aalines(screen, "black", False, nodes_display)
     pygame.draw.aalines(screen, "black", False, outer_line * screen_scale)
@@ -275,18 +274,6 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 pygame.quit()
-
-    save_track = input("Save track? ")
-    if len(save_track) > 0:
-        if save_track.lower() != "no" and save_track.lower() != "n":
-            track = "tracks/demo_track"
-            np.save(f"{track}.npy", nodes)
-            np.save(f"{track}_inner_bound.npy", inner_line)
-            np.save(f"{track}_outer_bound.npy", outer_line)
-
-            old_track = f"{track}_old"
-            np.save(f"{old_track}_inner_bound.npy", old_inner)
-            np.save(f"{old_track}_outer_bound.npy", old_outer)
 
     save_track = input("Save track? ")
     if len(save_track) > 0:
