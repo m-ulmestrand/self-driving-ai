@@ -43,16 +43,23 @@ class DrawRewards(Scene):
         line_graph3.set_z_index(vertex_graph2.z_index - 1)
         ax.set_z_index(vertex_graph2.z_index - 2)
 
-        p1 = [reward_pts[0], 0, 0]
-        p2 = [reward_pts[1], 0, 0]
-        p3 = [reward_pts[0], 1 / (reward_pts[1] - reward_pts[0]), 0]
-        p4 = [reward_pts[1], 1 / (reward_pts[2] - reward_pts[1]), 0]
-        # Have to use move_to
+        p1 = ax.c2p(reward_pts[0], 0, 0)
+        p2 = ax.c2p(reward_pts[1], 0, 0)
+        p3 = ax.c2p(reward_pts[0], 2 / (reward_pts[1] - reward_pts[0]), 0)
+        p4 = ax.c2p(reward_pts[1], 1.5 / (reward_pts[2] - reward_pts[1]), 0)
 
-        brace1 = BraceBetweenPoints([0, 0, 0], p1)
+        brace1 = BraceBetweenPoints(ax.c2p(0, 0, 0), p1)
         brace2 = BraceBetweenPoints(p1, p2)
-        brace3 = BraceBetweenPoints([reward_pts[0], 0, 0], p3)
-        brace4 = BraceBetweenPoints([reward_pts[1], 0, 0], p4)
+        brace3 = BraceBetweenPoints(ax.c2p(reward_pts[0], 0, 0), p3)
+        brace4 = BraceBetweenPoints(ax.c2p(reward_pts[1], 0, 0), p4)
+
+        d1 = int(reward_pts[0] - 0)
+        d2 = int(reward_pts[1] - reward_pts[0])
+
+        t1 = Text(f"{d1}",).scale(0.5).next_to(brace1, 0.5 * DOWN)
+        t2 = Text(f"{d2}",).scale(0.5).next_to(brace2, 0.5 * DOWN)
+        t3 = Text(f"1/{d1}").scale(0.5).next_to(brace3, 0.5 * RIGHT)
+        t4 = Text(f"1/{d2}").scale(0.5).next_to(brace4, 0.5 * RIGHT)
 
         self.play(Create(ax))
         self.play(Create(vertex_graph1["vertex_dots"]))
@@ -60,7 +67,14 @@ class DrawRewards(Scene):
         self.play(Transform(vertex_graph1["vertex_dots"], vertex_graph2["vertex_dots"]))
         self.play(Transform(circle1, circle2))
         self.wait(2)
-        self.add(brace1, brace2, brace3, brace4)
+        self.play(Create(brace1), Create(t1))
+        self.play(Create(brace3), Create(t3))
+        self.wait(1)
+        self.play(FadeOut(brace1, brace3, t1, t3))
+        self.play(Create(brace2), Create(t2))
+        self.play(Create(brace4), Create(t4))
+        self.wait(1)
+        self.play(FadeOut(brace2, brace4, t2, t4))
         self.play(Create(line_graph), run_time=2)
         self.wait(2)
         self.play(ReplacementTransform(line_graph, line_graph2))
