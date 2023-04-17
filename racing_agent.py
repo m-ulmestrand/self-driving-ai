@@ -493,34 +493,58 @@ class RacingAgent:
                 self.old_states_buffer = torch.cat((self.old_states_buffer, old_states[:n_to_append]), dim=0)
                 self.states_buffer = torch.cat((self.states_buffer, states[:n_to_append]), dim=0)
 
-    def reward_per_node(self):
+    def reward_rising(self):
+        '''Gives rewards that rises between node passing points, then drops'''
+        if len(self.node_passing_times) >= 1:
+            previous_times = np.append(0, self.node_passing_times[:-1])
+
+            for time1, time in zip(previous_times, self.node_passing_times):
+                time2 = time
+                diff = time2 - time1
+                reward = 1 / diff
+
+                for step, i in enumerate(range(time1, time2)):
+                    self.rewards[i] = reward * (step + 1) / diff
+            t_after_nodes = self.node_passing_times[-1] + 1
+
+        else:
+            # If the car didn't pass any nodes, all times are penalised
+            t_after_nodes = 0
+
+        if not self.current_step == self.generation_length:
+            diff = self.current_step - t_after_nodes
+            reward = -1
+
+            for step, i in enumerate(range(t_after_nodes, self.current_step)):
+                self.rewards[i] = reward * (step + 1) / diff
+
+    def reward_continuous(self):
+        '''Gives a reward such that a continuous line is drawn between all reward points'''
+        previous_times = np.append(0, self.node_passing_times)
+        diffs = self.node_passing_times - previous_times[:-1]
+        rewards = 1 / diffs
+        rewards = np.append(rewards, -1)
+        pass_times = np.append(self.node_passing_times, self.current_step)
+        reward_before = 0
+
+        for pass_time, pass_time_before, reward in zip(pass_times, previous_times, rewards):
+            for step, i in enumerate(range(pass_time_before, pass_time)):
+                t = (step + 1) / (pass_time - pass_time_before)
+                self.rewards[i] = (t - 1) * reward_before + t * reward
+            
+            reward_before = reward
+        print(self.node_passing_times)
+        print(self.rewards[:self.current_step])
+
+    def reward_per_node(self, reward_method="continuous"):
         '''Gives rewards depending on how well the agent performs'''
         self.current_step += 1
 
         if self.has_collided or self.current_step == self.generation_length:
-
-            if len(self.node_passing_times) >= 1:
-                previous_times = np.append(0, self.node_passing_times[:-1])
-
-                for time1, time in zip(previous_times, self.node_passing_times):
-                    time2 = time
-                    diff = time2 - time1
-                    reward = 1 / diff
-
-                    for step, i in enumerate(range(time1, time2)):
-                        self.rewards[i] = reward * (step + 1) / diff
-                t_after_nodes = self.node_passing_times[-1] + 1
-
+            if reward_method == "continuous":
+                self.reward_continuous()
             else:
-                # If the car didn't pass any nodes, all times are penalised
-                t_after_nodes = 0
-
-            if not self.current_step == self.generation_length:
-                diff = self.current_step - t_after_nodes
-                reward = -1
-
-                for step, i in enumerate(range(t_after_nodes, self.current_step)):
-                    self.rewards[i] = reward * (step + 1) / diff
+                self.reward_rising()
             self.passed_node = False
 
             # Will append with probability depending on how far the agent got
