@@ -237,7 +237,7 @@ class RacingAgent:
         
         with open("build/" + self.save_name + ".json", 'w') as save_file:
             model_config = {
-                "network_type": self.network_type,
+                "network_type": self.network_type.__name__,
                 "n_neurons": self.network_params,
                 "seq_length": self.seq_length
             }
@@ -498,20 +498,12 @@ class RacingAgent:
         self.current_step += 1
 
         if self.has_collided or self.current_step == self.generation_length:
-            if len(self.node_passing_times) == 1:
-                n_steps = self.node_passing_times[0] + 1
-                reward = 1 / n_steps
 
-                for i in range(n_steps):
-                    self.rewards[i] = reward * (i + 1) / self.current_step
-                # Save the times after passing nodes, they will be penalised
-                t_after_nodes = self.node_passing_times[-1] + 1
-
-            elif len(self.node_passing_times) > 1:
+            if len(self.node_passing_times) >= 1:
                 previous_times = np.append(0, self.node_passing_times[:-1])
 
                 for time1, time in zip(previous_times, self.node_passing_times):
-                    time2 = time + 1
+                    time2 = time
                     diff = time2 - time1
                     reward = 1 / diff
 
@@ -527,19 +519,19 @@ class RacingAgent:
                 diff = self.current_step - t_after_nodes
                 reward = -1
 
-                for i in range(t_after_nodes, self.current_step):
-                    self.rewards[i] = reward * (i + 1) / diff
+                for step, i in enumerate(range(t_after_nodes, self.current_step)):
+                    self.rewards[i] = reward * (step + 1) / diff
             self.passed_node = False
 
-        # Will append with probability depending on how far the agent got
-        do_append = np.random.rand() < len(self.node_passing_times) / self.append_scale
-        if do_append and (self.has_collided or self.current_step == self.generation_length - 1) and self.current_step > 0:
-            self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
-                                self.old_states[:self.current_step], self.states[:self.current_step])
+            # Will append with probability depending on how far the agent got
+            do_append = np.random.rand() < len(self.node_passing_times) / self.append_scale
+            if do_append and (self.has_collided or self.current_step == self.generation_length - 1) and self.current_step > 0:
+                self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
+                                    self.old_states[:self.current_step], self.states[:self.current_step])
 
-        if self.distance > self.max_distance:
-            self.max_distance = self.distance.copy()
-            self.save_network()
+            if self.distance > self.max_distance:
+                self.max_distance = self.distance.copy()
+                self.save_network()
 
     def reinforce(self, n_epochs: int = 1):
         '''Deep Q-learning reinforcement step'''
