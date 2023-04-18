@@ -530,7 +530,7 @@ class RacingAgent:
         for pass_time, pass_time_before, reward in zip(pass_times, previous_times, rewards):
             for step, i in enumerate(range(pass_time_before, pass_time)):
                 t = (step + 1) / (pass_time - pass_time_before)
-                self.rewards[i] = (t - 1) * reward_before + t * reward
+                self.rewards[i] = (1 - t) * reward_before + t * reward
             
             reward_before = reward
         print(self.node_passing_times)
