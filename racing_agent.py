@@ -38,6 +38,7 @@ class RacingAgent:
         epsilon_final: float = 0.01, 
         buffer_size: int = 5000,
         learning_rate: float = 0.001, 
+        reward_method: Literal["continuous", "rising"] = "continuous",
         batch_size: int = 100, 
         network_type: nn.Module = DenseNetwork,
         buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
@@ -50,41 +51,44 @@ class RacingAgent:
         device: str = "cuda:0"
     ):
 
-        # box_size: Size of the box which the track is contained in. 
-        # This does not ever need to be changed unless you change it in draw_track.
+        """
+        box_size: Size of the box which the track is contained in. 
+        This does not ever need to be changed unless you change it in draw_track.
 
-        # car_width, car_length: Width and length of the car
-        # lane_width: width of the track
-        # r_min: Minimal turning radius
-        # turning_speed: How fast the steering wheel can be turned
-        # speed: Maximal speed of the car
-        # acceleration: How fast the agent can accelerate 
-        # deceleration: How fast the agent can decelerate 
-        # speed_lower: Fraction of maximum speed that the car can minimally decelerate to
-        # drift: How fast the car can catch up with steering angle. 
-        # 0.0: instant. 1.0: can't catch up at all.
-        # turn_radius_decay: Controls how much the turning radius decays for higher speeds. 
-        # Range: 1.0 - inf.
+        car_width, car_length: Width and length of the car
+        lane_width: width of the track
+        r_min: Minimal turning radius
+        turning_speed: How fast the steering wheel can be turned
+        speed: Maximal speed of the car
+        acceleration: How fast the agent can accelerate 
+        deceleration: How fast the agent can decelerate 
+        speed_lower: Fraction of maximum speed that the car can minimally decelerate to
+        drift: How fast the car can catch up with steering angle. 
+            0.0: instant. 1.0: can't catch up at all.
+        turn_radius_decay: Controls how much the turning radius decays for higher speeds. 
+            Range: 1.0 - inf.
         
-        # epsilon_start: Start value of epsilon during training
-        # epsilon_scale: How fast epsilon decreases. Higher means slower
-        # epsilon_final: The final value of epsilon during training
-        # With epsilon_start = 1.0, epsilon_scale = generation_length, epsilon_final = 0.0,
-        # epsilon decreases linearly from 1.0 to 0.0 from generation 0 to the final generation.
+        epsilon_start: Start value of epsilon during training
+        epsilon_scale: How fast epsilon decreases. Higher means slower
+        epsilon_final: The final value of epsilon during training
+            With epsilon_start = 1.0, epsilon_scale = generation_length, epsilon_final = 0.0,
+            epsilon decreases linearly from 1.0 to 0.0 from generation 0 to the final generation.
 
-        # buffer_size: Size of the replay buffer
-        # learning_rate: Rate of learning for the optimizer
-        # batch_size: Batch size for training
-        # Network type: Which kind of network will be used
-        # buffer_behaviour: Determines whether to continuously discard old items, 
-        # or to just fill the buffer until full.
-        # hidden_neurons: Number of hidden neurons per layer
-        # seq_length: Sequence length for using RNN. For DenseNetwork, this should be 1
-        # generation_length: How long one generation can maximally be
-        # track_numbers: Which racetrack numbers will be used for training
-        # target_sync: How long the target network is kept constant
-        # append_scale: Determines how likely it is to append to replay buffer for a certain number of passed nodes.
-        # If the number of passed nodes is greater than append_scale, it will always append
+        buffer_size: Size of the replay buffer
+        learning_rate: Rate of learning for the optimizer
+        reward_method: Which reward method to use
+        batch_size: Batch size for training
+        Network type: Which kind of network will be used
+        buffer_behaviour: Determines whether to continuously discard old items, 
+            or to just fill the buffer until full.
+        hidden_neurons: Number of hidden neurons per layer
+        seq_length: Sequence length for using RNN. For DenseNetwork, this should be 1
+        generation_length: How long one generation can maximally be
+        track_numbers: Which racetrack numbers will be used for training
+        target_sync: How long the target network is kept constant
+        append_scale: Determines how likely it is to append to replay buffer for a certain number of passed nodes.
+            If the number of passed nodes is greater than append_scale, it will always append
+        """
 
         # Various car model parameters
         self.box_size = box_size
@@ -154,6 +158,11 @@ class RacingAgent:
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros(generation_length, dtype=torch.double)
         self.rewards_buffer = torch.zeros(0, dtype=torch.double)
+        self.reward_method = {
+            "continuous": self.reward_continuous,
+            "rising": self.reward_rising
+        }[reward_method]
+
         self.states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
         self.states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
@@ -533,18 +542,13 @@ class RacingAgent:
                 self.rewards[i] = (1 - t) * reward_before + t * reward
             
             reward_before = reward
-        print(self.node_passing_times)
-        print(self.rewards[:self.current_step])
 
     def reward_per_node(self, reward_method="continuous"):
         '''Gives rewards depending on how well the agent performs'''
         self.current_step += 1
 
         if self.has_collided or self.current_step == self.generation_length:
-            if reward_method == "continuous":
-                self.reward_continuous()
-            else:
-                self.reward_rising()
+            self.reward_method()
             self.passed_node = False
 
             # Will append with probability depending on how far the agent got
@@ -565,13 +569,12 @@ class RacingAgent:
         if self.rewards_buffer.shape[0] > self.batch_size:
             self.network.train()
             self.target_network.train()
-
-            indices = torch.randperm(self.rewards_buffer.shape[0]).long()
             batch_size = self.batch_size
 
-            end_index = 0
-            start_index = 0
             for epoch in range(n_epochs):
+                end_index = 0
+                start_index = 0
+                indices = torch.randperm(self.rewards_buffer.shape[0]).long()
                 while end_index < self.rewards_buffer.shape[0]:
                     self.optimizer.zero_grad()
                     end_index += batch_size
