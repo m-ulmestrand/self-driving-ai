@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.nn import Linear, RNN
+from torch.nn import Linear, RNN, MultiheadAttention
 import numpy as np
 from numpy import sqrt
 
@@ -175,3 +175,33 @@ class DenseLookAheadNetwork(nn.Module):
             x = x.relu()
         x = self.layers[-1](x)
         return x
+
+
+class AttentionNetwork(nn.Module):
+    def __init__(self, n_neurons: int, device: str = "cpu"):
+        super().__init__()
+
+        self.attention_layers = nn.ModuleList()
+        self.device = device
+        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], batch_first=True, nonlinearity="relu")
+
+        for i in range(2, len(n_neurons)-1):
+            layer = MultiheadAttention(n_neurons[1], n_neurons[i], batch_first=True)
+            self.attention_layers.append(layer)
+        self.linear = Linear(n_neurons[1], n_neurons[-1])
+        self.double()
+        self.to(self.device)
+
+    def forward(self, x: torch.tensor):
+        x, _ = self.recurrent_layer(x)
+        for layer in self.attention_layers:
+            x, _ = layer(x, x, x)
+        x = x[:, -1, :]
+        x = self.linear(x)
+        return x
+
+
+if __name__ == "__main__":
+    net = AttentionNetwork([7,32,8,8,4])
+    inp = torch.randn((1, 5, 7), dtype=torch.double)
+    net(inp)
