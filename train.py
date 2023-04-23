@@ -9,7 +9,7 @@ Author: Mattias Ulmestrand
 
 
 from racing_agent import RacingAgent
-from racing_network import DenseNetwork, RecurrentNetwork
+from racing_network import *
 import numpy as np
 import sys
 
@@ -28,11 +28,9 @@ def main():
     # Change this to initialize and train a new agent.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
     # Both the final agent and the best performing one are saved.
-    race_car.save_name = 'agent_test'
+    race_car.save_name = 'agent_attn'
     race_car.load_network(name=race_car.save_name)
-
     race_car.reinitialise_random_track()
-    original_pos = np.copy(race_car.position)
 
     message = ""
     for i in range(runs):
