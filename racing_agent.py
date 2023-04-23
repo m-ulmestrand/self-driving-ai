@@ -302,7 +302,7 @@ class RacingAgent:
         node_index = get_node(nodes[:-1], position)
 
         if node_index > self.current_node or (len(self.node_passing_times) > 0 and
-                                              (node_index == 0 and self.current_node == self.track_nodes.shape[0] - 1)):
+                                              (node_index == 0 and self.current_node == nodes.shape[0] - 3)):
             self.current_node = node_index
             self.node_passing_times = np.append(self.node_passing_times, self.current_step)
             self.passed_node = True
