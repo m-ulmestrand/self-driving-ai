@@ -10,7 +10,7 @@ import torch
 from torch import nn, tensor
 import numpy as np
 from typing import Literal
-from racing_network import DenseNetwork, RecurrentNetwork
+from racing_network import DenseNetwork, RecurrentNetwork, AttentionNetwork
 from collision_handling import *
 from init_cuda import init_cuda
 import math
@@ -222,8 +222,11 @@ class RacingAgent:
             try:
                 with open(network_param_name) as parameter_file:
                     model_config = json.load(parameter_file)
-                    network_dict = {DenseNetwork.__name__: DenseNetwork,
-                                    RecurrentNetwork.__name__: RecurrentNetwork}
+                    network_dict = {
+                        DenseNetwork.__name__: DenseNetwork,
+                        RecurrentNetwork.__name__: RecurrentNetwork,
+                        AttentionNetwork.__name__: AttentionNetwork
+                    }
                     self.network_type = network_dict[model_config["network_type"]]
                     self.network_params = model_config["n_neurons"]
                     self.seq_length = model_config["seq_length"]
@@ -537,7 +540,7 @@ class RacingAgent:
             rewards = np.append(rewards, -1)
         else:
             rewards = np.append(rewards, 0)
-            
+
         pass_times = np.append(self.node_passing_times, self.current_step)
         reward_before = 0
 
