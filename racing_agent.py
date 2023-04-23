@@ -532,7 +532,12 @@ class RacingAgent:
         previous_times = np.append(0, self.node_passing_times)
         diffs = self.node_passing_times - previous_times[:-1]
         rewards = 1 / diffs
-        rewards = np.append(rewards, -1)
+
+        if not self.current_step == self.generation_length:
+            rewards = np.append(rewards, -1)
+        else:
+            rewards = np.append(rewards, 0)
+            
         pass_times = np.append(self.node_passing_times, self.current_step)
         reward_before = 0
 
