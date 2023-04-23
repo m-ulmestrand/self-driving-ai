@@ -3,6 +3,19 @@ from torch import nn
 from torch.nn import Linear, RNN, MultiheadAttention
 import numpy as np
 from numpy import sqrt
+import importlib
+import inspect
+from pathlib import Path
+
+
+def get_classes():
+    filename = Path(__file__).stem
+    return [
+        (name, cls) for (name, cls) in inspect.getmembers(
+            importlib.import_module(filename), inspect.isclass
+        )
+        if cls.__module__ == filename
+    ]
 
 
 class DenseNetwork(nn.Module):
@@ -199,9 +212,3 @@ class AttentionNetwork(nn.Module):
         x = x[:, -1, :]
         x = self.linear(x)
         return x
-
-
-if __name__ == "__main__":
-    net = AttentionNetwork([7,32,8,8,4])
-    inp = torch.randn((1, 5, 7), dtype=torch.double)
-    net(inp)
