@@ -27,13 +27,17 @@ class DrawDiagram(Scene):
         self.draw_branch(agent_opt_pos, ea_pos, "Evolutionary algorithms")
         self.wait(2)
         self.new_node(ea_pos)
-        self.draw_branch(ea_pos, ga_pos, "Genetic algorithms")
+        _, _, ga_text = self.draw_branch(ea_pos, ga_pos, "Genetic algorithms")
         self.draw_branch(ea_pos, swarm_pos, "Swarm intelligence")
         self.draw_branch(ea_pos, more_pos, "...")
         mobjects1 = self.draw_branch(agent_opt_pos, ea_pos, color=BLUE_C, size_mult=1.4, run_time_mult=0.75)
         node = self.new_node(ea_pos, color=BLUE_C, size_mult=1.4)
         mobjects2 = self.draw_branch(ea_pos, ga_pos, color=BLUE_C, size_mult=1.4, run_time_mult=0.75)
+        self.play(ga_text.animate.scale(1.15), run_time=0.5)
+        self.play(ga_text.animate.set_color(BLUE_D))
         self.wait(2)
+        self.play(ga_text.animate.set_color(WHITE))
+        self.play(ga_text.animate.scale(1/1.15), run_time=0.5)
         self.play(FadeOut(*mobjects1, *mobjects2, node))
 
         # Reinforcement learning branch
