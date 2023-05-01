@@ -13,6 +13,10 @@ class DrawDiagram(Scene):
         ql_pos = np.array([1, 0.5, 0])
         pg_pos = np.array([3, 0.5, 0])
         ac_pos = np.array([2, -0.5, 0])
+        a2c_pos = np.array([1.25, -1.5, 0])
+        a3c_pos = np.array([1.6, -1.8, 0])
+        trpo_pos = np.array([2.4, -1.8, 0])
+        ppo_pos = np.array([3, -1.5, 0])
 
         agent_opt = Text("Agent optimization", font_size=20).move_to(agent_opt_pos)
 
@@ -43,12 +47,17 @@ class DrawDiagram(Scene):
         self.draw_branch(ql_pos, ac_pos, run_time_mult=0.5)
         self.new_node(pg_pos)
         self.draw_branch(pg_pos, ac_pos, "Actor-critic RL", run_time_mult=0.5)
+        self.draw_branch(ac_pos, a2c_pos, "A2C", run_time_mult=0.5)
+        self.draw_branch(ac_pos, a3c_pos, "A3C", run_time_mult=0.5)
+        self.draw_branch(ac_pos, trpo_pos, "TRPO", run_time_mult=0.5)
+        self.draw_branch(ac_pos, ppo_pos, "PPO", run_time_mult=0.5)
         self.draw_branch(agent_opt_pos, rl_pos, color=BLUE_C, size_mult=1.4, run_time_mult=0.75)
+        self.new_node(ac_pos)
         self.new_node(rl_pos, color=BLUE_C, size_mult=1.4)
         self.draw_branch(rl_pos, ql_pos, color=BLUE_C, size_mult=1.4, run_time_mult=0.75)
         self.play(ql_text.animate.scale(1.5), run_time=0.5)
         self.play(ql_text.animate.set_color(BLUE_D))
-        self.wait(2)
+        self.wait(4)
         self.play(
             *[FadeOut(mob)for mob in self.mobjects]
         )
