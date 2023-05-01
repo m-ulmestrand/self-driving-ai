@@ -13,10 +13,11 @@ class DrawDiagram(Scene):
         ql_pos = np.array([1, 0.5, 0])
         pg_pos = np.array([3, 0.5, 0])
         ac_pos = np.array([2, -0.5, 0])
-        a2c_pos = np.array([1.25, -1.5, 0])
-        a3c_pos = np.array([1.6, -1.8, 0])
-        trpo_pos = np.array([2.4, -1.8, 0])
-        ppo_pos = np.array([3, -1.5, 0])
+        angle_diff = 35
+        a2c_pos = ac_pos + self.vector_down(-3 / 2 * angle_diff)
+        a3c_pos = ac_pos + self.vector_down(-angle_diff / 2)
+        trpo_pos = ac_pos + self.vector_down(angle_diff / 2)
+        ppo_pos = ac_pos + self.vector_down(3 / 2 * angle_diff)
 
         agent_opt = Text("Agent optimization", font_size=20).move_to(agent_opt_pos)
 
@@ -111,3 +112,18 @@ class DrawDiagram(Scene):
         dot = Dot(pos - displace, (DEFAULT_DOT_RADIUS * size_mult / 2), color=color)
         self.play(FadeIn(dot), run_time=0.25)
         return dot
+    
+    def vector_down(
+            self,
+            angle: float,
+            length: float = 1.,
+            aspect_ratio: float = 3/2
+    ) -> np.ndarray:
+        down_angle = 3 * PI / 2 
+        deg_to_rad = PI / 180
+        rad_angle = angle * deg_to_rad
+        return length * np.array([
+            np.cos(down_angle + rad_angle), 
+            np.sin(down_angle + rad_angle) * aspect_ratio, 
+            0
+        ])
