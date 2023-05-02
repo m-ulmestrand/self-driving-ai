@@ -15,12 +15,6 @@ class DrawTrack(Scene):
         self.play(Create(track_plot["vertex_dots"]), run_time=2)
         # self.play(Create(track_plot["line_graph"]), run_time=2)
         
-        """start = np.zeros(3)
-        end = np.zeros(3)
-        end[:2] = nodes[5, :]
-        arr = Arrow(start_point=start, end_point=end)
-        self.play(Create(arr))"""
-        
         outer_plot = ax.plot_line_graph(outer[:, 0], outer[:, 1], line_color=BLUE_E, add_vertex_dots=False)
         inner_plot = ax.plot_line_graph(inner[:, 0], inner[:, 1], line_color=BLUE_E, add_vertex_dots=False)
 
@@ -36,6 +30,11 @@ class DrawTrack(Scene):
         self.play(Create(outer_plot), Create(inner_plot), run_time=2)
         self.play(*[FadeOut(l) for l in plots], run_time=1)
         self.wait(1)
+        inner_circles = self.draw_circles(inner[[25, 32, 40], :], ax)
+        outer_pos = outer[[28, 36, 45], :]
+        outer_pos[:, 0] -= 1
+        outer_circles = self.draw_circles(outer_pos, ax)
+        self.wait(3)
         
         # New track, removed loops
         inner = np.load(f"./tracks/{track}_inner_bound.npy")
@@ -44,8 +43,19 @@ class DrawTrack(Scene):
         inner_plot_new = ax.plot_line_graph(inner[:, 0], inner[:, 1], line_color=BLUE_E, add_vertex_dots=False)
 
         self.play(Transform(outer_plot, outer_plot_new), Transform(inner_plot, inner_plot_new))
+        self.play(FadeOut(*inner_circles, *outer_circles))
         self.wait(2)
 
+    def draw_circles(self, positions: np.ndarray, ax: Axes, r: float = 0.15, run_time: float = 0.75):
+        circles = [None] * positions.shape[0]
+        for i, pos in enumerate(positions):
+            circle = Circle(r).move_to(ax.c2p(*pos))
+            circles[i] = circle
+            self.play(Create(circle), run_time=run_time)
+        
+        return circles
+        
+        
 
 """def construct(self):
     vertices1 = range(50)
