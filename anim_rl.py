@@ -37,9 +37,12 @@ class DrawDiagram(Scene):
         self.play(ga_text.animate.scale(1.15), run_time=0.5)
         self.play(ga_text.animate.set_color(BLUE_D))
         self.wait(2)
+        mobject_collection = (*mobjects1, *mobjects2, node, ga_text)
+        self.play(*(mobject.animate.set_color(RED) for mobject in mobject_collection))
+        self.wait(1)
         self.play(ga_text.animate.set_color(WHITE))
         self.play(ga_text.animate.scale(1/1.15), run_time=0.5)
-        self.play(FadeOut(*mobjects1, *mobjects2, node))
+        self.play(FadeOut(*mobject_collection[:-1]))
 
         # Reinforcement learning branch
         self.draw_branch(agent_opt_pos, rl_pos, "Reinforcement learning")
