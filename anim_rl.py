@@ -22,7 +22,7 @@ class DrawDiagram(Scene):
         agent_opt = Text("Agent optimization", font_size=20).move_to(agent_opt_pos)
 
         # Evolutionary algorithm branch
-        self.play(Create(agent_opt), run_time=1.5)
+        self.play(Write(agent_opt), run_time=1.5)
         self.wait(2)
         self.new_node(agent_opt_pos)
         self.draw_branch(agent_opt_pos, ea_pos, "Evolutionary algorithms")
