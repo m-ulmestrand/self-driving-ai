@@ -69,6 +69,7 @@ class DrawNet(Scene):
         line_group = Group(*lines_first)
         self.play(line_anims, run_time=3)"""
         line_group = Group(*lines_first)
+        line_group.z_index = neurons[0][0].z_index - 1
         self.play(FadeIn(line_group), run_time=0.5)
         self.wait(2)
 
