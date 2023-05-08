@@ -43,6 +43,20 @@ class DrawNet(Scene):
             self.play(Write(txt), Create(in_arrows[i]), run_time=0.75)
         self.wait(2)
 
+        brace_x = x - 0.25
+        d_brace = BraceBetweenPoints([brace_x, neurons_y[0][0], 0], [brace_x, neurons_y[0][4], 0], LEFT)
+        brace_text = Paragraph(
+            "Distances to", 
+            "\ntrack edges", 
+            font_size=15, 
+            alignment="center",
+            line_spacing=0
+        ).next_to(d_brace, LEFT)
+        # brace_text = Text("Distances\n to track edges", font_size=15).next_to(d_brace, LEFT)
+        self.play(Create(d_brace), Write(brace_text))
+        self.wait(1)
+        self.play(FadeOut(d_brace), FadeOut(brace_text))
+
         for i, (txt, y) in enumerate(zip(in_features[-2:], neurons_y[0][-2:]), start=len(in_features[:-2])):
             txt: MathTex
             txt.move_to([x, y, 0])
@@ -51,10 +65,10 @@ class DrawNet(Scene):
         self.wait(2)
 
         self.play(*[FadeIn(neuron) for neuron in neurons[-1]], run_time=1)
-        out_features = [r"+\Delta \theta", r"-\Delta \theta", r"+v", r"-v"]
+        out_features = [r"+\Delta \theta_\text{wheels}", r"-\Delta \theta_\text{wheels}", r"+\Delta v", r"-\Delta v"]
         out_features = [MathTex(feat, font_size=30) for feat in out_features]
         x = neurons_x[-1] + 1.5
-        x_end = x - 0.2
+        x_end = x - 0.5
         out_arrows = [None] * len(neurons[-1])
 
         for i, (txt, y) in enumerate(zip(out_features, neurons_y[-1])):
