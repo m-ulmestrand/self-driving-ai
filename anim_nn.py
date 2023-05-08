@@ -4,13 +4,13 @@ import numpy as np
 
 class DrawNet(Scene):
     def construct(self):
-        n_neurons = np.array([7, 10, 8, 4], dtype='intc')
+        n_neurons = np.array([7, 12, 8, 4], dtype='intc')
 
         start_neuron_x = -3
         end_neuron_x = 3
         neurons_x = np.linspace(start_neuron_x, end_neuron_x, len(n_neurons))
-        neurons_x[0] = np.mean(neurons_x[[0, 1]])
-        neurons_x[-1] = np.mean(neurons_x[[-1, -2]])
+        neurons_x[0] = -1
+        neurons_x[-1] = 1
         neurons_y = [None for _ in n_neurons]
         max_neurons = max(n_neurons)
         y_scale = 6
@@ -47,12 +47,13 @@ class DrawNet(Scene):
         d_brace = BraceBetweenPoints([brace_x, neurons_y[0][0], 0], [brace_x, neurons_y[0][4], 0], LEFT)
         brace_text = Paragraph(
             "Distances to", 
-            "\ntrack edges", 
+            "track edges", 
+            "by angles",
             font_size=15, 
             alignment="center",
-            line_spacing=0
+            line_spacing=1
         ).next_to(d_brace, LEFT)
-        # brace_text = Text("Distances\n to track edges", font_size=15).next_to(d_brace, LEFT)
+
         self.play(Create(d_brace), Write(brace_text))
         self.wait(1)
         self.play(FadeOut(d_brace), FadeOut(brace_text))
