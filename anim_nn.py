@@ -36,11 +36,19 @@ class DrawNet(Scene):
         x_start = x + 0.4
         in_arrows = [None] * len(neurons[0])
 
-        for i, (txt, y) in enumerate(zip(in_features, neurons_y[0])):
+        for i, (txt, y) in enumerate(zip(in_features[:-2], neurons_y[0][:-2])):
             txt: MathTex
             txt.move_to([x, y, 0])
             in_arrows[i] = Arrow(start=[x_start, y, 0], end=[neurons_x[0], y, 0])
-            self.play(Write(txt), Create(in_arrows[i]))
+            self.play(Write(txt), Create(in_arrows[i]), run_time=0.75)
+        self.wait(2)
+
+        for i, (txt, y) in enumerate(zip(in_features[-2:], neurons_y[0][-2:]), start=len(in_features[:-2])):
+            txt: MathTex
+            txt.move_to([x, y, 0])
+            in_arrows[i] = Arrow(start=[x_start, y, 0], end=[neurons_x[0], y, 0])
+            self.play(Write(txt), Create(in_arrows[i]), run_time=0.75)
+        self.wait(2)
 
         self.play(*[FadeIn(neuron) for neuron in neurons[-1]], run_time=1)
         out_features = [r"+\Delta \theta", r"-\Delta \theta", r"+v", r"-v"]
@@ -53,8 +61,9 @@ class DrawNet(Scene):
             txt: MathTex
             txt.move_to([x, y, 0])
             out_arrows[i] = Arrow(start=[neurons_x[-1], y, 0], end=[x_end, y, 0])
-            self.play(Write(txt), Create(out_arrows[i]))
+            self.play(Write(txt), Create(out_arrows[i]), run_time=0.75)
         
+        self.wait(2)
         lines_first = [None] * (n_neurons[0] * n_neurons[-1])
 
         x1, x2 = neurons_x[[0, -1]]
@@ -65,9 +74,13 @@ class DrawNet(Scene):
                 lines_first[j].set_z_index(neurons[0][0].z_index - 1)
                 j += 1
 
-        """line_anims = Succession(*[Create(line) for line in lines_first])
+        """
+        # This doesn't work as expected with z_index...
+        line_anims = Succession(*[Create(line) for line in lines_first])
         line_group = Group(*lines_first)
-        self.play(line_anims, run_time=3)"""
+        line_group.z_index = neurons[0][0].z_index - 1
+        self.play(line_anims, run_time=3)
+        """
         line_group = Group(*lines_first)
         line_group.z_index = neurons[0][0].z_index - 1
         self.play(FadeIn(line_group), run_time=0.5)
