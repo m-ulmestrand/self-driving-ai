@@ -38,6 +38,7 @@ class RacingAgent:
         epsilon_final: float = 0.01, 
         buffer_size: int = 5000,
         learning_rate: float = 0.001, 
+        gamma: float = 0.9,
         reward_method: Literal["continuous", "rising"] = "continuous",
         batch_size: int = 100, 
         network_type: nn.Module = DenseNetwork,
@@ -76,6 +77,7 @@ class RacingAgent:
 
         buffer_size: Size of the replay buffer
         learning_rate: Rate of learning for the optimizer
+        gamma: Discount for future Q-values
         reward_method: Which reward method to use
         batch_size: Batch size for training
         Network type: Which kind of network will be used
@@ -142,6 +144,7 @@ class RacingAgent:
         self.buffer_size = buffer_size
         self.buffer_behaviour = buffer_behaviour
         self.learning_rate = learning_rate
+        self.gamma = gamma
         self.generation = 0
         self.generation_length = generation_length
         self.current_step = 0
@@ -586,12 +589,15 @@ class RacingAgent:
                     self.optimizer.zero_grad()
                     end_index += batch_size
                     batch_inds = indices[start_index:end_index]
+
                     q_old = self.network(self.old_states_buffer[batch_inds].to(self.device))
                     q_new = self.target_network(self.states_buffer[batch_inds].to(self.device))
 
                     q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
                     q_new_max = torch.max(q_new, dim=1)[0]
-                    loss = self.loss_function(self.rewards_buffer[batch_inds].to(self.device) + q_new_max, q_old_a)
+                    q_future = self.rewards_buffer[batch_inds].to(self.device) + self.gamma * q_new_max
+
+                    loss = self.loss_function(q_future, q_old_a)
                     loss.backward()
                     self.optimizer.step()
                     self.total_loss += loss.detach().cpu().item()
