@@ -66,7 +66,12 @@ class DrawNet(Scene):
         self.wait(2)
 
         self.play(*[FadeIn(neuron) for neuron in neurons[-1]], run_time=1)
-        out_features = [r"+\Delta \theta_\text{wheels}", r"-\Delta \theta_\text{wheels}", r"+\Delta v", r"-\Delta v"]
+        out_features = [
+            r"+\Delta \theta_\text{wheels}", 
+            r"-\Delta \theta_\text{wheels}", 
+            r"+\Delta v", 
+            r"-\Delta v"
+        ]
         out_features = [MathTex(feat, font_size=30) for feat in out_features]
         x = neurons_x[-1] + 1.5
         x_end = x - 0.5
@@ -79,6 +84,18 @@ class DrawNet(Scene):
             self.play(Write(txt), Create(out_arrows[i]), run_time=0.75)
         
         self.wait(2)
+        s_brace = BraceBetweenPoints([brace_x, neurons_y[0][0] - 0.1, 0], [brace_x, neurons_y[0][-1] + 0.1, 0], LEFT)
+        state_text = MathTex(r"s", font_size=30).next_to(s_brace, LEFT)
+        self.play(Create(s_brace), Write(state_text))
+
+        brace_x = x + 1
+        a_brace = BraceBetweenPoints([brace_x, neurons_y[-1][0] - 0.1, 0], [brace_x, neurons_y[-1][-1] + 0.1, 0], RIGHT)
+        action_text = MathTex(r"Q(s, \mathbf{a})", font_size=30).next_to(a_brace, RIGHT)
+        self.play(Create(a_brace), Write(action_text))
+
+        self.wait(2)
+        self.play(FadeOut(a_brace, action_text, s_brace, state_text))
+
         lines_first = [None] * (n_neurons[0] * n_neurons[-1])
 
         x1, x2 = neurons_x[[0, -1]]
