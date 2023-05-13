@@ -9,7 +9,7 @@ Author: Mattias Ulmestrand
 import torch
 from torch import nn, tensor
 import numpy as np
-from typing import Literal
+from typing import Literal, Union
 from racing_network import DenseNetwork, get_classes
 from collision_handling import *
 from init_cuda import init_cuda
@@ -179,34 +179,38 @@ class RacingAgent:
         self.longest_survival = 0
         self.append_scale = append_scale
 
-    def reinitialise(self):
+    def reinitialise(self, keep_progress: bool = False):
         '''Reinitialises the agent'''
-        self.generation += 1
         self.current_step = 0
         self.position = np.copy(self.track_nodes[0])
         self.prev_pos = self.position.copy()
-        self.distance = 0.
         self.turning_angle = 0
         diff = self.track_nodes[1] - self.track_nodes[0]
         self.angle = np.arctan2(diff[1], diff[0])
         self.drift_angle = self.angle.copy()
         self.velocity = diff / np.sqrt(np.sum(diff**2)) * self.max_speed * 0.5
         self.drift_velocity = self.velocity.copy()
+        self.node_passing_times = np.zeros(0, dtype='intc')
         self.prev_vel = np.array([0, 0], dtype=float)
         self.rewards = torch.zeros(self.generation_length, dtype=torch.double)
         self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros(self.generation_length, dtype=torch.long)
         self.has_collided = False
-        self.node_passing_times = np.zeros(0, dtype='intc')
         self.passed_node = False
         self.current_node = 0
         self.total_loss = 0
 
-    def reinitialise_random_track(self):
+        if not keep_progress:
+            self.generation += 1
+            self.distance = 0.
+
+    def reinitialise_with_track(
+            self, track_name: Union[str, int] = None, keep_progress: bool = False
+    ):
         '''Reinitialises the agent and stores a random track'''
-        self.store_random_track()
-        self.reinitialise()
+        self.store_track(track_name)
+        self.reinitialise(keep_progress)
 
     def load_network(self, name: str = None):
         '''Loads a saved network'''
@@ -257,8 +261,12 @@ class RacingAgent:
             }
             json.dump(model_config, save_file, indent=4)
 
-    def store_track(self, track_name: str):
+    def store_track(self, track_name: Union[str, int] = None):
         '''Stores a track in the agent class instance'''
+        if track_name is None:
+            track_name = 'racetrack' + str(np.random.choice(self.track_numbers))
+        elif isinstance(track_name, int):
+            track_name = 'racetrack' + str(track_name)
         npy = '.npy'
         track_name = 'tracks/' + track_name
         self.track_nodes = np.load(track_name + npy)
@@ -271,11 +279,6 @@ class RacingAgent:
         self.angle = np.arctan2(diff[1], diff[0])
         self.drift_angle = self.angle.copy()
         self.car_bounds = car_lines(self.position, self.angle, self.car_width, self.car_length)
-
-    def store_random_track(self):
-        '''Stores a random track in the agent class instance'''
-        name = 'racetrack' + str(np.random.choice(self.track_numbers))
-        self.store_track(track_name=name)
 
     def get_epsilon(self):
         '''Returns the current value for epsilon'''
@@ -553,7 +556,7 @@ class RacingAgent:
             
             reward_before = reward
 
-    def reward_per_node(self, reward_method="continuous"):
+    def reward_per_node(self):
         '''Gives rewards depending on how well the agent performs'''
         self.current_step += 1
 
