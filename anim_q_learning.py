@@ -31,6 +31,7 @@ class DrawEquation(Scene):
         tex_list[-3] = r"Q"
         self.append_text(tex_list)
         tex_list[-1] = r")\right)"
+        tex_list[-4] = r"\gamma"
         tex_list[-5] = r"\left(r(s_{n-1}, a_{n-1}) +"
         self.append_text(tex_list)
         tex_list[-1] = r")"
