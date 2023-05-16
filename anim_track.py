@@ -54,18 +54,3 @@ class DrawTrack(Scene):
             self.play(Create(circle), run_time=run_time)
         
         return circles
-        
-        
-
-"""def construct(self):
-    vertices1 = range(50)
-    vertices2 = range(50)
-    edges = [(48, 49), (3, 4)]
-    g1 = Graph(vertices1, edges, layout="spiral")
-    g2 = Graph(vertices2, edges, layout="circular")
-
-    # self.add(graph)
-    self.play(Create(g1))
-    self.wait(5)
-    self.play(*[g1[i].animate.move_to(g2[i]) for i in vertices1])
-    self.wait()"""
