@@ -9,22 +9,22 @@ class DrawEquation(Scene):
         self.eq_texts = []
         eq_pos = [0, 2, 0]
         self.eq_texts.append(MathTex(
-            r"Q(s_0, a_0) = ", 
-            r"\sum_{i=1}^n \gamma^i r(s_i, a_i)", 
+            r"Q(s_t, a_t) = ", 
+            r"\sum_{i=t+1}^T \gamma^i r(s_i, a_i)", 
             font_size=30
         ).move_to(eq_pos))
         tex_list = np.array([
-            r"Q(s_0, a_0) = ", 
-            r"r(s_0, a_0)", 
-            r"+ \gamma^1 r(s_1, a_1) + \dots + ",
-            r"\gamma^{n-2}", 
+            r"Q(s_t, a_t) = ", 
+            r"r(s_t, a_t)", 
+            r"+ \gamma^1 r(s_{t+1}, a_{t+1}) + \dots + ",
+            r"\gamma^{T-2}", 
             r"r", 
-            r"(s_{n-2}, a_{n-2})", 
-            r"+ \gamma^{n-1}", 
-            r"r(s_{n-1}, a_{n-1}) + ", 
-            r"\gamma^n", 
+            r"(s_{T-2}, a_{T-2})", 
+            r"+ \gamma^{T-1}", 
+            r"r(s_{T-1}, a_{T-1}) + ", 
+            r"\gamma^T", 
             r"r", 
-            r"(s_n, a_n",
+            r"(s_T, a_T",
             r")"
         ])
         self.append_text(tex_list)
@@ -32,10 +32,10 @@ class DrawEquation(Scene):
         self.append_text(tex_list)
         tex_list[-1] = r")\right)"
         tex_list[-4] = r"\gamma"
-        tex_list[-5] = r"\left(r(s_{n-1}, a_{n-1}) +"
+        tex_list[-5] = r"\left(r(s_{T-1}, a_{T-1}) +"
         self.append_text(tex_list)
         tex_list[-1] = r")"
-        tex_list[-2] = r"(s_{n-1}, a_{n-1}"
+        tex_list[-2] = r"(s_{T-1}, a_{T-1}"
         tex_list[-4] = r" "
         tex_list[-5] = r" "
         self.append_text(tex_list)
@@ -44,8 +44,8 @@ class DrawEquation(Scene):
         self.append_text(tex_list)
         tex_list[2] = r"+ \gamma"
         tex_list[3] = r"Q"
-        tex_list[4] = r"(s_1,"
-        tex_list[5] = r"a_1"
+        tex_list[4] = r"(s_{t+1},"
+        tex_list[5] = r"a_{t+1}"
         tex_list[6] = r")"
         tex_list[7:] = r" "
         self.append_text(tex_list)
@@ -64,9 +64,9 @@ class DrawEquation(Scene):
         
         self.play(Write(Tex(r"At each time step, store:", font_size=30).move_to([-2, 1, 0])))
         objective_text = VGroup(
-            Tex(r"$\bullet$ Initial state $s_0$", font_size=30),
-            Tex(r"$\bullet$ Action $a_0$", font_size=30),
-            Tex(r"$\bullet$ New state $s_1$", font_size=30)
+            Tex(r"$\bullet$ Initial state $s_t$", font_size=30),
+            Tex(r"$\bullet$ Action $a_t$", font_size=30),
+            Tex(r"$\bullet$ New state $s_{t+1}$", font_size=30)
         ).move_to([-1.6, 0.5, 0])
 
         objective_text.arrange(DOWN, center=False, aligned_edge=LEFT)
@@ -75,17 +75,17 @@ class DrawEquation(Scene):
         self.play(Write(Tex(r"Minimize:", font_size=30).move_to([-3, -1.2, 0])))
 
         orig_eq = MathTex(
-            r"Q(s_0, a_0)",
+            r"Q(s_t, a_t)",
             r"=",
-            r"r(s_0, a_0) + \gamma\max_a Q(s_1, a)",
+            r"r(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
             font_size=30
         ).move_to(eq_pos)
 
         new_list = np.array([
             r"r",
-            r"(s_0, a_0) + \gamma\max_a Q(s_1, a)",
+            r"(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
             r"-",
-            r"Q(s_0, a_0",
+            r"Q(s_t, a_t",
             r")"
         ])
         loss_pos = [0, -2, 0]
