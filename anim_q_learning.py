@@ -34,7 +34,8 @@ class DrawEquation(Scene):
         tex_list[-4] = r"\gamma"
         tex_list[-5] = r"\left(r(s_{T-1}, a_{T-1}) +"
         self.append_text(tex_list)
-        tex_list[-1] = r")"
+        tex_list[4] = r"\left(r"
+        tex_list[6] = r"+ \gamma"
         tex_list[-2] = r"(s_{T-1}, a_{T-1}"
         tex_list[-4] = r" "
         tex_list[-5] = r" "
@@ -56,10 +57,18 @@ class DrawEquation(Scene):
         self.play(Write(rl_text))
         self.wait(1)
         self.play(Write(self.eq_texts[0]))
+        self.anims = [[None]] * (len(self.eq_texts) - 1)
         
-        for txt1, txt2 in zip(self.eq_texts[0:-1], self.eq_texts[1:]): 
+        for i, (txt1, txt2) in enumerate(zip(self.eq_texts[0:-1], self.eq_texts[1:])): 
+            self.anims[i] = [ReplacementTransform(txt1, txt2)]
+
+        self.brace_anim_with_text(1, Group(self.eq_texts[2][-3:]), "Q value at $T$")
+        self.brace_anim_with_text(2, Group(self.eq_texts[3][-5:]), "Q value at $T-1$")
+        self.brace_anim_with_text(3, Group(self.eq_texts[4][4:]), "Q value at $T-2$")
+
+        for anim in self.anims:
+            self.play(*anim)
             self.wait(2)
-            self.play(ReplacementTransform(txt1, txt2))
         self.wait(5)
         
         self.play(Write(Tex(r"At each time step, store:", font_size=30).move_to([-2, 1, 0])))
@@ -100,3 +109,9 @@ class DrawEquation(Scene):
 
     def append_text(self, tex_list: List[str], pos: np.ndarray = [0, 2, 0]):
         self.eq_texts.append(MathTex(*tex_list, font_size=30).move_to(pos))
+
+    def brace_anim_with_text(self, id: int, mobject: Mobject, text: str):
+        brace = Brace(mobject, DOWN)
+        tex = Tex(text, font_size=20).next_to(brace, DOWN)
+        self.anims[id].extend([Create(brace), Write(tex)])
+        self.anims[id + 1].append(FadeOut(brace, tex))
