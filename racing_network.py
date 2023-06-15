@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.nn import Linear, RNN, MultiheadAttention
+from torch.nn import Linear, RNN, MultiheadAttention, BatchNorm1d
 import numpy as np
 from numpy import sqrt
 import importlib
@@ -196,19 +196,23 @@ class AttentionNetwork(nn.Module):
 
         self.attention_layers = nn.ModuleList()
         self.device = device
-        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], batch_first=True, nonlinearity="relu")
+        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], nonlinearity="relu")
+        n_features = n_neurons[1]
 
         for i in range(2, len(n_neurons)-1):
-            layer = MultiheadAttention(n_neurons[1], n_neurons[i], batch_first=True)
+            layer = MultiheadAttention(n_features, n_neurons[i])
             self.attention_layers.append(layer)
-        self.linear = Linear(n_neurons[1], n_neurons[-1])
+        self.linear = Linear(n_features, n_neurons[-1])
         self.double()
         self.to(self.device)
 
-    def forward(self, x: torch.tensor):
+    def forward(self, x: torch.Tensor):
         x, _ = self.recurrent_layer(x)
-        for layer in self.attention_layers:
-            x, _ = layer(x, x, x)
-        x = x[:, -1, :]
+
+        for self_attn in self.attention_layers:
+            x, _ = self_attn(x, x, x)
+            x = x.relu()
+            
+        x = x.mean(dim=1)
         x = self.linear(x)
         return x
