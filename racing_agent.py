@@ -212,32 +212,46 @@ class RacingAgent:
         self.store_track(track_name)
         self.reinitialise(keep_progress)
 
-    def load_network(self, name: str = None):
-        '''Loads a saved network'''
-        if name is None:
-            name = self.save_name
-        
-        if name.startswith("final_"):
-            network_param_name = "./build/" + name[6:] + ".json"
+    @staticmethod
+    def parse_json_config(name: str):
+        '''Parses a JSON model config'''
+        final_identifier = "final_"
+        if name.startswith(final_identifier):
+            network_param_name = "./build/" + name[len(final_identifier):] + ".json"
         else:
             network_param_name = "./build/" + name + ".json"
+        with open(network_param_name) as parameter_file:
+            model_config = json.load(parameter_file)
+        
+        return model_config
+    
+    def set_network_params(self, model_config):
+        '''Sets network parameters by a model config'''
+        cls_list = get_classes()
+        network_dict = {
+            name: cls for (name, cls) in cls_list
+        }
+        self.network_type = network_dict[model_config["network_type"]]
+        self.network_params = model_config["n_neurons"]
+        self.seq_length = model_config["seq_length"]
+        
+    def load_network(self, name: str = None, model_config: dict = None):
+        '''Loads a saved network'''
+        if model_config is not None:
+            self.set_network_params(model_config)
+            return None
+        
+        if name is None:
+            name = self.save_name
 
-        name = "build/" + name
-        network_file_name = name + ".pt"
+        network_file_name = "build/" + name + ".pt"
 
         if os.path.isfile(network_file_name):
             try:
-                with open(network_param_name) as parameter_file:
-                    model_config = json.load(parameter_file)
-                    cls_list = get_classes()
-                    network_dict = {
-                        name: cls for (name, cls) in cls_list
-                    }
-                    self.network_type = network_dict[model_config["network_type"]]
-                    self.network_params = model_config["n_neurons"]
-                    self.seq_length = model_config["seq_length"]
+                model_config = self.parse_json_config(name)
+                self.set_network_params(model_config)
             except:
-                print("File " + network_param_name + " not found or incorrectly formatted. Using stored settings instead.")
+                print("Network " + name + " not found or incorrectly formatted. Using stored settings instead.")
             self.network = self.network_type(self.network_params).to(self.device)
             self.target_network = self.network_type(self.network_params).to(self.device)
             self.network.load_state_dict(torch.load(network_file_name))
