@@ -213,6 +213,6 @@ class AttentionNetwork(nn.Module):
             x, _ = self_attn(x, x, x)
             x = x.relu()
             
-        x = x.mean(dim=1)
+        x = x[:, -1, :]
         x = self.linear(x)
         return x
