@@ -138,7 +138,7 @@ def main():
     turning_speed = 0.125
     drift = 0.0
     acc = 0.005
-    model_config = RacingAgent.parse_json_config()
+    model_config = RacingAgent.parse_json_config(args.agent_name)
 
     agent = RacingAgent(
         box_size=box_size, 

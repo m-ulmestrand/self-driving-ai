@@ -216,10 +216,13 @@ class RacingAgent:
     def parse_json_config(name: str):
         '''Parses a JSON model config'''
         final_identifier = "final_"
+        build_folder = "./build/"
+        json_extension = ".json"
+
         if name.startswith(final_identifier):
-            network_param_name = "./build/" + name[len(final_identifier):] + ".json"
+            network_param_name = build_folder + name[len(final_identifier):] + json_extension
         else:
-            network_param_name = "./build/" + name + ".json"
+            network_param_name = build_folder + name + json_extension
         with open(network_param_name) as parameter_file:
             model_config = json.load(parameter_file)
         
@@ -234,17 +237,24 @@ class RacingAgent:
         self.network_type = network_dict[model_config["network_type"]]
         self.network_params = model_config["n_neurons"]
         self.seq_length = model_config["seq_length"]
+
+    def load_state_dict(self, network_file_name: str):
+        '''Loads network state dicts'''
+        self.network = self.network_type(self.network_params).to(self.device)
+        self.target_network = self.network_type(self.network_params).to(self.device)
+        self.network.load_state_dict(torch.load(network_file_name))
+        self.target_network.load_state_dict(self.network.state_dict())
         
     def load_network(self, name: str = None, model_config: dict = None):
         '''Loads a saved network'''
-        if model_config is not None:
-            self.set_network_params(model_config)
-            return None
-        
         if name is None:
             name = self.save_name
-
         network_file_name = "build/" + name + ".pt"
+
+        if model_config is not None:
+            self.set_network_params(model_config)
+            self.load_state_dict(network_file_name)
+            return None
 
         if os.path.isfile(network_file_name):
             try:
@@ -252,10 +262,7 @@ class RacingAgent:
                 self.set_network_params(model_config)
             except:
                 print("Network " + name + " not found or incorrectly formatted. Using stored settings instead.")
-            self.network = self.network_type(self.network_params).to(self.device)
-            self.target_network = self.network_type(self.network_params).to(self.device)
-            self.network.load_state_dict(torch.load(network_file_name))
-            self.target_network.load_state_dict(self.network.state_dict())
+            self.load_state_dict(network_file_name)
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
         
