@@ -228,7 +228,7 @@ class RacingAgent:
         
         return model_config
     
-    def set_network_params(self, model_config):
+    def set_network_params(self, model_config: dict):
         '''Sets network parameters by a model config'''
         cls_list = get_classes()
         network_dict = {
@@ -237,6 +237,18 @@ class RacingAgent:
         self.network_type = network_dict[model_config["network_type"]]
         self.network_params = model_config["n_neurons"]
         self.seq_length = model_config["seq_length"]
+
+    def set_agent_params(self, model_config: dict):
+        '''Sets agent car model parameters by a model config'''
+        self.r_min = model_config["r_min"]
+        self.turn_radius_decay = model_config["turn_radius_decay"]
+        self.turning_speed = model_config["turning_speed"]
+        self.max_speed = model_config["max_speed"]
+        self.acc = model_config["acceleration"]
+        self.dec = model_config["deceleration"]
+        self.speed_lower = model_config["speed_lower"]
+        self.drift = model_config["drift"]
+        self.max_angle = model_config["max_angle"]
 
     def load_state_dict(self, network_file_name: str):
         '''Loads network state dicts'''
@@ -278,7 +290,16 @@ class RacingAgent:
             model_config = {
                 "network_type": self.network_type.__name__,
                 "n_neurons": self.network_params,
-                "seq_length": self.seq_length
+                "seq_length": self.seq_length,
+                "r_min": self.r_min,
+                "turn_radius_decay": self.turn_radius_decay,
+                "turning_speed": self.turning_speed,
+                "max_speed": self.max_speed,
+                "acceleration": self.acc,
+                "deceleration": self.dec,
+                "speed_lower": self.speed_lower,
+                "drift": self.drift,
+                "max_angle": self.max_angle
             }
             json.dump(model_config, save_file, indent=4)
 
