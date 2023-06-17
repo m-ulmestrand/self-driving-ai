@@ -143,9 +143,6 @@ def main():
     agent = RacingAgent(
         box_size=box_size, 
         buffer_size=1, 
-        turning_speed=turning_speed, 
-        drift=drift, 
-        acceleration=acc, 
         device='cpu',
         seq_length=model_config["seq_length"],
     )
@@ -154,6 +151,10 @@ def main():
     agent.save_name = args.agent_name
     agent.store_track(track)
     agent.load_network(model_config=model_config)
+    agent.set_agent_params(model_config)
+    agent.turning_speed=turning_speed
+    agent.drift=drift
+    agent.acc=acc 
 
     pygame.init()
     screen_x1 = box_size * screen_scale
