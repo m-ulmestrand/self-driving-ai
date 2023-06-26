@@ -1,5 +1,20 @@
 {
     "network_type": "DenseNetwork",
-    "n_neurons": [7, 32, 32, 32, 4],
-    "seq_length": 1
+    "n_neurons": [
+        7,
+        32,
+        32,
+        32,
+        4
+    ],
+    "seq_length": 1,
+    "r_min": 5.0,
+    "turn_radius_decay": 1.0,
+    "turning_speed": 0.125,
+    "max_speed": 1.0,
+    "acceleration": 0.1,
+    "deceleration": 0.9,
+    "speed_lower": 0.5,
+    "drift": 0.0,
+    "max_angle": 0.7853981633974483
 }
