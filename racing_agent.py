@@ -16,6 +16,7 @@ from init_cuda import init_cuda
 import math
 import os.path
 import json
+from copy import deepcopy
 
 
 class RacingAgent:
@@ -80,7 +81,7 @@ class RacingAgent:
         gamma: Discount for future Q-values
         reward_method: Which reward method to use
         batch_size: Batch size for training
-        Network type: Which kind of network will be used
+        network_type: Which kind of network will be used
         buffer_behaviour: Determines whether to continuously discard old items, 
             or to just fill the buffer until full.
         hidden_neurons: Number of hidden neurons per layer
@@ -252,10 +253,13 @@ class RacingAgent:
 
     def load_state_dict(self, network_file_name: str):
         '''Loads network state dicts'''
+        checkpoint = torch.load(network_file_name)
         self.network = self.network_type(self.network_params).to(self.device)
         self.target_network = self.network_type(self.network_params).to(self.device)
-        self.network.load_state_dict(torch.load(network_file_name))
-        self.target_network.load_state_dict(self.network.state_dict())
+        self.network.load_state_dict(checkpoint["model_state_dict"])
+        self.target_network.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         
     def load_network(self, name: str = None, model_config: dict = None):
         '''Loads a saved network'''
@@ -277,14 +281,28 @@ class RacingAgent:
             self.load_state_dict(network_file_name)
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
-        
+    
+    def get_net(self):
+        net: torch.nn.Module = deepcopy(self.network)
+        try:
+            checkpoint = torch.load("./build/" + self.save_name + ".pt")
+            net.load_state_dict(checkpoint["model_state_dict"])
+            return net
+        except:
+            return None
 
     def save_network(self, name: str = None):
         '''Saves the current network'''
         if name is None:
             name = self.save_name
         name = "build/" + name + ".pt"
-        torch.save(self.network.state_dict(), name)
+        torch.save(
+            {
+                "model_state_dict": self.network.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict()
+            }, 
+            name
+        )
         
         with open("build/" + self.save_name + ".json", 'w') as save_file:
             model_config = {
