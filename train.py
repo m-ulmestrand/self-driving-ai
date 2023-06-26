@@ -8,6 +8,7 @@ Author: Mattias Ulmestrand
 '''
 
 
+from matplotlib import pyplot as plt
 from racing_agent import RacingAgent
 from racing_network import *
 import numpy as np
@@ -31,6 +32,16 @@ def main():
     race_car.save_name = 'agent_test'
     race_car.load_network(name=race_car.save_name)
     race_car.store_track(training_track_numbers[0])
+    fig, ax = plt.subplots()
+    ax.set_xlim([0, runs])
+    ax.set_ylim([0, 1000])
+    ax.set_xlabel("Generation")
+    ax.set_ylabel("Distance travelled")
+    x_data = np.arange(runs)
+    dists = np.zeros(runs)
+    plot, = ax.plot(dists, color="black")
+    fig.canvas.draw()
+    plt.show(block=False)
 
     message = ""
     for i in range(runs):
@@ -50,7 +61,14 @@ def main():
                     f"Epsilon: {race_car.get_epsilon():.2f}, " \
                     f"Loss: {race_car.total_loss:.4f}"
         sys.stdout.write(message)
+        dists[i] = race_car.distance
         race_car.reinitialise()
+
+        plot.set_data(x_data[:i + 1], dists[:i + 1])
+        ax.draw_artist(plot)
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+
     race_car.save_network('final_' + race_car.save_name)
 
 
