@@ -157,7 +157,14 @@ class RecurrentNetwork(nn.Module):
         self.device = device
 
         for i in range(len(n_neurons)-2):
-            self.recurrent_layers.append(RNN(n_neurons[i], n_neurons[i + 1], batch_first=True, nonlinearity="relu"))
+            self.recurrent_layers.append(
+                RNN(
+                    n_neurons[i], 
+                    n_neurons[i + 1], 
+                    batch_first=True, 
+                    nonlinearity="relu"
+                )
+            )
         self.linear = Linear(n_neurons[-2], n_neurons[-1])
         self.double()
         self.to(self.device)
@@ -196,11 +203,11 @@ class AttentionNetwork(nn.Module):
 
         self.attention_layers = nn.ModuleList()
         self.device = device
-        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], nonlinearity="relu")
+        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], nonlinearity="relu", batch_first=True)
         n_features = n_neurons[1]
 
         for i in range(2, len(n_neurons)-1):
-            layer = MultiheadAttention(n_features, n_neurons[i])
+            layer = MultiheadAttention(n_features, n_neurons[i], batch_first=True)
             self.attention_layers.append(layer)
         self.linear = Linear(n_features, n_neurons[-1])
         self.double()
