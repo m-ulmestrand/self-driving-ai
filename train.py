@@ -29,17 +29,22 @@ def main():
     # Change this to initialize and train a new agent.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
     # Both the final agent and the best performing one are saved.
-    race_car.save_name = 'agent_test'
+    race_car.save_name = 'agent_attn'
     race_car.load_network(name=race_car.save_name)
     race_car.store_track(training_track_numbers[0])
+
+    avg_interval = 50
+    y_max = 1000
     fig, ax = plt.subplots()
     ax.set_xlim([0, runs])
-    ax.set_ylim([0, 1000])
+    ax.set_ylim([0, y_max])
     ax.set_xlabel("Generation")
     ax.set_ylabel("Distance travelled")
     x_data = np.arange(runs)
     dists = np.zeros(runs)
+    avg_dists = np.zeros(runs)
     plot, = ax.plot(dists, color="black")
+    avg_plot, = ax.plot(dists, color="red", linestyle="--")
     fig.canvas.draw()
     plt.show(block=False)
 
@@ -62,10 +67,17 @@ def main():
                     f"Loss: {race_car.total_loss:.4f}"
         sys.stdout.write(message)
         dists[i] = race_car.distance
+        avg_dists[i] = dists[max(0, i - avg_interval): i + 1].mean()
         race_car.reinitialise()
 
+        if dists[i] > y_max:
+            y_max = dists[i]
+            ax.set_ylim([0, y_max * 1.1])
+
         plot.set_data(x_data[:i + 1], dists[:i + 1])
+        avg_plot.set_data(x_data[:i + 1], avg_dists[:i + 1])
         ax.draw_artist(plot)
+        ax.draw_artist(avg_plot)
         fig.canvas.draw()
         fig.canvas.flush_events()
 
