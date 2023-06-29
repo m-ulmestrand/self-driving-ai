@@ -630,7 +630,7 @@ class RacingAgent:
                 self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
                                     self.old_states[:self.current_step], self.states[:self.current_step])
 
-            if self.distance > self.max_distance:
+            if self.distance >= self.max_distance:
                 self.max_distance = self.distance.copy()
                 self.save_network()
 
