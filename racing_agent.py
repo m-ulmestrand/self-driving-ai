@@ -10,7 +10,7 @@ import torch
 from torch import nn, tensor
 import numpy as np
 from typing import Literal, Union
-from racing_network import DenseNetwork, get_classes
+from racing_network import DenseNetwork, get_network_classes
 from collision_handling import *
 from init_cuda import init_cuda
 import math
@@ -44,7 +44,7 @@ class RacingAgent:
         batch_size: int = 100, 
         network_type: nn.Module = DenseNetwork,
         buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
-        hidden_neurons: tuple = (32, 32), 
+        network_params: tuple = (32, 32), 
         seq_length: int = 1, 
         generation_length: int = 2000, 
         track_numbers=np.arange(8), 
@@ -84,7 +84,7 @@ class RacingAgent:
         network_type: Which kind of network will be used
         buffer_behaviour: Determines whether to continuously discard old items, 
             or to just fill the buffer until full.
-        hidden_neurons: Number of hidden neurons per layer
+        network_params: Network parameters as defined in racing_network.py
         seq_length: Sequence length for using RNN. For DenseNetwork, this should be 1
         generation_length: How long one generation can maximally be
         track_numbers: Which racetrack numbers will be used for training
@@ -149,13 +149,18 @@ class RacingAgent:
         self.generation = 0
         self.generation_length = generation_length
         self.current_step = 0
-        self.network_params = [self.n_inputs, *hidden_neurons, self.n_actions]
+        self.seq_length = seq_length
+        self.network_param_dict = {
+            "n_inputs": self.n_inputs,
+            "params": network_params,
+            "n_outputs": self.n_actions,
+            "seq_length": self.seq_length
+        }
         self.network_type = network_type
-        self.network = network_type(self.network_params, device)
-        self.target_network = network_type(self.network_params, device)
+        self.network = network_type(self.network_param_dict, device)
+        self.target_network = network_type(self.network_param_dict, device)
         self.target_network.load_state_dict(self.network.state_dict())
         self.target_network.eval()
-        self.seq_length = seq_length
         self.target_sync_period = target_sync
         self.device = init_cuda(device)
 
@@ -231,12 +236,17 @@ class RacingAgent:
     
     def set_network_params(self, model_config: dict):
         '''Sets network parameters by a model config'''
-        cls_list = get_classes()
+        cls_list = get_network_classes()
         network_dict = {
             name: cls for (name, cls) in cls_list
         }
         self.network_type = network_dict[model_config["network_type"]]
-        self.network_params = model_config["n_neurons"]
+        self.network_param_dict = {
+            "n_inputs": self.n_inputs,
+            "params": model_config["params"],
+            "n_outputs": self.n_actions,
+            "seq_length": model_config["seq_length"]
+        }
         self.seq_length = model_config["seq_length"]
 
     def set_agent_params(self, model_config: dict):
@@ -254,8 +264,8 @@ class RacingAgent:
     def load_state_dict(self, network_file_name: str):
         '''Loads network state dicts'''
         checkpoint = torch.load(network_file_name)
-        self.network = self.network_type(self.network_params).to(self.device)
-        self.target_network = self.network_type(self.network_params).to(self.device)
+        self.network = self.network_type(self.network_param_dict).to(self.device)
+        self.target_network = deepcopy(self.network)
         self.network.load_state_dict(checkpoint["model_state_dict"])
         self.target_network.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
@@ -281,15 +291,6 @@ class RacingAgent:
             self.load_state_dict(network_file_name)
         else:
             print("PyTorch checkpoint does not exist. Skipped loading.")
-    
-    def get_net(self):
-        net: torch.nn.Module = deepcopy(self.network)
-        try:
-            checkpoint = torch.load("./build/" + self.save_name + ".pt")
-            net.load_state_dict(checkpoint["model_state_dict"])
-            return net
-        except:
-            return None
 
     def save_network(self, name: str = None):
         '''Saves the current network'''
@@ -307,7 +308,7 @@ class RacingAgent:
         with open("build/" + self.save_name + ".json", 'w') as save_file:
             model_config = {
                 "network_type": self.network_type.__name__,
-                "n_neurons": self.network_params,
+                "params": self.network_param_dict["params"],
                 "seq_length": self.seq_length,
                 "r_min": self.r_min,
                 "turn_radius_decay": self.turn_radius_decay,

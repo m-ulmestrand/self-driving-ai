@@ -8,7 +8,7 @@ import inspect
 from pathlib import Path
 
 
-def get_classes():
+def get_network_classes():
     filename = Path(__file__).stem
     return [
         (name, cls) for (name, cls) in inspect.getmembers(
@@ -19,10 +19,14 @@ def get_classes():
 
 
 class DenseNetwork(nn.Module):
-    def __init__(self, n_neurons: list, device: str = "cpu"):
+    def __init__(self, param_dict: list, device: str = "cpu"):
         super().__init__()
         
-        self.n_neurons = n_neurons
+        n_neurons = [
+            param_dict["n_inputs"], 
+            *param_dict["params"],
+            param_dict["n_outputs"]
+        ]
         self.layers = nn.ModuleList()
         self.device = device
 
@@ -150,11 +154,16 @@ class DenseNetwork(nn.Module):
 
 
 class RecurrentNetwork(nn.Module):
-    def __init__(self, n_neurons: int, device: str = "cpu") -> None:
+    def __init__(self, param_dict: int, device: str = "cpu") -> None:
         super().__init__()
 
         self.recurrent_layers = nn.ModuleList()
         self.device = device
+        n_neurons = [
+            param_dict["n_inputs"], 
+            *param_dict["params"],
+            param_dict["n_outputs"]
+        ]
 
         for i in range(len(n_neurons)-2):
             self.recurrent_layers.append(
@@ -177,39 +186,32 @@ class RecurrentNetwork(nn.Module):
         return x
 
 
-class DenseLookAheadNetwork(nn.Module):
-    def __init__(self, n_neurons: int, device: str = "cpu"):
-        super().__init__()
-
-        self.layers = nn.ModuleList()
-        self.device = device
-
-        for i in range(len(n_neurons)-1):
-            self.layers.append(Linear(n_neurons[i], n_neurons[i + 1]))
-        self.double()
-        self.to(device)
-
-    def forward(self, x: torch.tensor):
-        for layer in self.layers[:-1]:
-            x = layer(x)
-            x = x.relu()
-        x = self.layers[-1](x)
-        return x
-
-
 class AttentionNetwork(nn.Module):
-    def __init__(self, n_neurons: int, device: str = "cpu"):
+    def __init__(self, param_dict: int, device: str = "cpu"):
         super().__init__()
 
         self.attention_layers = nn.ModuleList()
         self.device = device
-        self.recurrent_layer = RNN(n_neurons[0], n_neurons[1], nonlinearity="relu", batch_first=True)
-        n_features = n_neurons[1]
+        params = param_dict["params"]
+        n_hidden_neurons = params[0]
+        n_heads_per_layer = [*params[1:]]
 
-        for i in range(2, len(n_neurons)-1):
-            layer = MultiheadAttention(n_features, n_neurons[i], batch_first=True)
+        self.recurrent_layer = RNN(
+            param_dict["n_inputs"], 
+            n_hidden_neurons, 
+            nonlinearity="relu", 
+            batch_first=True
+        )
+
+        for n_heads in n_heads_per_layer:
+            layer = MultiheadAttention(
+                n_hidden_neurons, 
+                n_heads, 
+                batch_first=True
+            )
             self.attention_layers.append(layer)
-        self.linear = Linear(n_features, n_neurons[-1])
+        self.linear = Linear(n_hidden_neurons, param_dict["n_outputs"])
+        self.global_attn_weights = nn.Parameter(torch.rand(param_dict["seq_length"]))
         self.double()
         self.to(self.device)
 
@@ -219,7 +221,8 @@ class AttentionNetwork(nn.Module):
         for self_attn in self.attention_layers:
             x, _ = self_attn(x, x, x)
             x = x.relu()
-            
-        x = x[:, -1, :]
+        
+        attention_scores = self.global_attn_weights.softmax(dim=0)
+        x = torch.einsum("bij,i->bj", x, attention_scores)
         x = self.linear(x)
         return x
