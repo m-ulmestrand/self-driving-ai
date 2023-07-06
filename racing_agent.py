@@ -50,7 +50,8 @@ class RacingAgent:
         track_numbers=np.arange(8), 
         target_sync: int = 150, 
         append_scale: int = 20, 
-        device: str = "cuda:0"
+        device: str = "cuda:0",
+        name: str = "agent"
     ):
 
         """
@@ -91,6 +92,7 @@ class RacingAgent:
         target_sync: How long the target network is kept constant
         append_scale: Determines how likely it is to append to replay buffer for a certain number of passed nodes.
             If the number of passed nodes is greater than append_scale, it will always append
+        name: Name of the agent, used during saving and loading
         """
 
         # Various car model parameters
@@ -115,7 +117,6 @@ class RacingAgent:
         self.max_distance = 0
         self.turning_angle = 0
         self.turning_speed = turning_speed
-        self.save_name = "racing_agent_improved"
         self.track_numbers = track_numbers
         self.max_angle = np.pi / 4
         self.acc = acceleration
@@ -125,6 +126,7 @@ class RacingAgent:
         self.max_angular_vel = speed / (self.r_min * math.tan(math.pi/2 - self.max_angle))
         self.angle_buffer = 0
         self.turn_radius_decay = turn_radius_decay
+        self.save_name = name
 
         # Controlling exploration during Q-learning
         self.epsilon_start = epsilon_start
@@ -270,6 +272,7 @@ class RacingAgent:
         self.target_network.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.max_distance = checkpoint["max_distance"]
         
     def load_network(self, name: str = None, model_config: dict = None):
         '''Loads a saved network'''
@@ -300,7 +303,8 @@ class RacingAgent:
         torch.save(
             {
                 "model_state_dict": self.network.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict()
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "max_distance": self.max_distance
             }, 
             name
         )
