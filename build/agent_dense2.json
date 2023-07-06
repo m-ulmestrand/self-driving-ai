@@ -1,11 +1,9 @@
 {
     "network_type": "DenseNetwork",
-    "n_neurons": [
-        7,
+    "params": [
         32,
         32,
-        32,
-        4
+        32
     ],
     "seq_length": 1,
     "r_min": 5.0,
