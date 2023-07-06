@@ -27,6 +27,7 @@ class DenseNetwork(nn.Module):
             *param_dict["params"],
             param_dict["n_outputs"]
         ]
+        self.n_neurons = n_neurons
         self.layers = nn.ModuleList()
         self.device = device
 
@@ -202,6 +203,7 @@ class AttentionNetwork(nn.Module):
             nonlinearity="relu", 
             batch_first=True
         )
+        self.recurrent_layer.flatten_parameters()
 
         for n_heads in n_heads_per_layer:
             layer = MultiheadAttention(
