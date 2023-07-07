@@ -35,7 +35,7 @@ class RacingAgent:
         epsilon_start: float = 1., 
         drift: float = 0.,
         turn_radius_decay: float = 1., 
-        epsilon_scale: int = 2000, 
+        epsilon_steps: int = 2000, 
         epsilon_final: float = 0.01, 
         buffer_size: int = 5000,
         learning_rate: float = 0.001, 
@@ -72,7 +72,7 @@ class RacingAgent:
             Range: 1.0 - inf.
         
         epsilon_start: Start value of epsilon during training
-        epsilon_scale: How fast epsilon decreases. Higher means slower
+        epsilon_steps: How fast epsilon decreases. Higher means slower
         epsilon_final: The final value of epsilon during training
             With epsilon_start = 1.0, epsilon_scale = generation_length, epsilon_final = 0.0,
             epsilon decreases linearly from 1.0 to 0.0 from generation 0 to the final generation.
@@ -130,7 +130,7 @@ class RacingAgent:
 
         # Controlling exploration during Q-learning
         self.epsilon_start = epsilon_start
-        self.epsilon_scale = epsilon_scale
+        self.epsilon_steps = epsilon_steps
         self.epsilon_final = epsilon_final
 
         # Placeholder for the track
@@ -272,7 +272,11 @@ class RacingAgent:
         self.target_network.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.max_distance = checkpoint["max_distance"]
+
+        try:
+            self.max_distance = checkpoint["max_distance"]
+        except KeyError:
+            print("max_distance not loaded due to outdated model")
         
     def load_network(self, name: str = None, model_config: dict = None):
         '''Loads a saved network'''
@@ -347,7 +351,10 @@ class RacingAgent:
 
     def get_epsilon(self):
         '''Returns the current value for epsilon'''
-        return max(self.epsilon_start - self.generation / self.epsilon_scale, self.epsilon_final)
+        if self.generation < self.epsilon_steps:
+            scale = self.epsilon_start - self.epsilon_final
+            return self.epsilon_start - scale * (self.generation / self.epsilon_steps)
+        return self.epsilon_final
 
     def move(self):
         '''Moves the agent with current settings'''
@@ -641,34 +648,33 @@ class RacingAgent:
 
     def reinforce(self, n_epochs: int = 1):
         '''Deep Q-learning reinforcement step'''
+        self.network.train()
+        self.target_network.train()
+        batch_size = self.batch_size
+
+        for epoch in range(n_epochs):
+            end_index = 0
+            start_index = 0
+            indices = torch.randperm(self.rewards_buffer.shape[0]).long()
+            while end_index < self.rewards_buffer.shape[0]:
+                self.optimizer.zero_grad()
+                end_index += batch_size
+                batch_inds = indices[start_index:end_index]
+
+                q_old = self.network(self.old_states_buffer[batch_inds].to(self.device))
+                q_new = self.target_network(self.states_buffer[batch_inds].to(self.device))
+
+                q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
+                q_new_max = torch.max(q_new, dim=1)[0]
+                q_future = self.rewards_buffer[batch_inds].to(self.device) + self.gamma * q_new_max
+
+                loss = self.loss_function(q_future, q_old_a)
+                loss.backward()
+                self.optimizer.step()
+                self.total_loss += loss.detach().cpu().item()
+                start_index += batch_size
+        self.total_loss /= n_epochs
+        self.target_network.eval()
+
         if self.generation % self.target_sync_period == 0:
             self.target_network.load_state_dict(self.network.state_dict())
-
-        if self.rewards_buffer.shape[0] > self.batch_size:
-            self.network.train()
-            self.target_network.train()
-            batch_size = self.batch_size
-
-            for epoch in range(n_epochs):
-                end_index = 0
-                start_index = 0
-                indices = torch.randperm(self.rewards_buffer.shape[0]).long()
-                while end_index < self.rewards_buffer.shape[0]:
-                    self.optimizer.zero_grad()
-                    end_index += batch_size
-                    batch_inds = indices[start_index:end_index]
-
-                    q_old = self.network(self.old_states_buffer[batch_inds].to(self.device))
-                    q_new = self.target_network(self.states_buffer[batch_inds].to(self.device))
-
-                    q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
-                    q_new_max = torch.max(q_new, dim=1)[0]
-                    q_future = self.rewards_buffer[batch_inds].to(self.device) + self.gamma * q_new_max
-
-                    loss = self.loss_function(q_future, q_old_a)
-                    loss.backward()
-                    self.optimizer.step()
-                    self.total_loss += loss.detach().cpu().item()
-                    start_index += batch_size
-            self.total_loss /= n_epochs
-            self.target_network.eval()

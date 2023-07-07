@@ -21,22 +21,22 @@ def main():
     n_epochs = 1
     race_car = RacingAgent(
         box_size=100, 
-        epsilon_scale=3000, 
         buffer_behaviour="discard_old", 
         turning_speed=0.125,
         epsilon_start=0.5, 
-        epsilon_final=0., 
+        epsilon_final=0.1, 
+        epsilon_steps=100,
         r_min=5., 
         buffer_size=5000, 
         seq_length=1, 
         network_type=DenseNetwork,
         network_params=(32,32,32), 
-        target_sync=100, 
+        target_sync=150, 
         generation_length=1000, 
         track_numbers=training_track_numbers,
         turn_radius_decay=1., 
         append_scale=20,
-        name='agent_dense2'
+        name='agent_dense'
     )
 
     # Change this to initialize and train a new agent.
