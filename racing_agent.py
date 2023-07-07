@@ -272,11 +272,6 @@ class RacingAgent:
         self.target_network.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-        try:
-            self.max_distance = checkpoint["max_distance"]
-        except KeyError:
-            print("max_distance not loaded due to outdated model")
         
     def load_network(self, name: str = None, model_config: dict = None):
         '''Loads a saved network'''
