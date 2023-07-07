@@ -17,7 +17,7 @@ import sys
 
 def main():
     runs = 1500
-    training_track_numbers = [1, 8, 15]
+    training_track_numbers = [15]
     n_epochs = 1
     race_car = RacingAgent(
         box_size=100, 
@@ -25,7 +25,7 @@ def main():
         turning_speed=0.125,
         epsilon_start=0.5, 
         epsilon_final=0.1, 
-        epsilon_steps=100,
+        epsilon_steps=1400,
         r_min=5., 
         buffer_size=5000, 
         seq_length=1, 
@@ -36,7 +36,7 @@ def main():
         track_numbers=training_track_numbers,
         turn_radius_decay=1., 
         append_scale=20,
-        name='agent_dense'
+        name='agent_dense3'
     )
 
     # Change this to initialize and train a new agent.
