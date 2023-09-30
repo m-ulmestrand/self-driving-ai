@@ -19,7 +19,7 @@ class DrawDiagram(Scene):
         trpo_pos = ac_pos + self.vector_down(angle_diff / 2)
         ppo_pos = ac_pos + self.vector_down(3 / 2 * angle_diff)
 
-        agent_opt = Text("Agent optimization", font_size=20).move_to(agent_opt_pos)
+        agent_opt = Tex("Agent optimization", font_size=30).move_to(agent_opt_pos)
 
         # Evolutionary algorithm branch
         self.play(Write(agent_opt), run_time=1.5)
@@ -75,14 +75,14 @@ class DrawDiagram(Scene):
             pos_before: np.ndarray, 
             pos: np.ndarray, 
             text: str = None, 
-            font_size: int = 15,
+            font_size: int = 20,
             displace: np.ndarray = np.array([0, 0.22, 0]),
             color: str = WHITE,
             size_mult: float = 1.,
             run_time_mult: float = 1.
     ):
         if text is not None:
-            txt = Text(text, font_size=font_size, color=color).move_to(pos)
+            txt = Tex(text, font_size=font_size, color=color).move_to(pos)
 
         dot = Dot(
             pos + displace, 
