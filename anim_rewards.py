@@ -82,6 +82,10 @@ class DrawRewards(Scene):
         self.play(ReplacementTransform(line_graph2, line_graph3))
         self.wait(2)
 
+        self.play(
+            *[FadeOut(mob) for mob in self.mobjects], run_time=1
+        )
+
     @staticmethod
     def fill_rewards1(
             x: np.ndarray,

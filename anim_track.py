@@ -46,6 +46,10 @@ class DrawTrack(Scene):
         self.play(FadeOut(*inner_circles, *outer_circles))
         self.wait(2)
 
+        self.play(
+            *[FadeOut(mob) for mob in self.mobjects], run_time=1
+        )
+
     def draw_circles(self, positions: np.ndarray, ax: Axes, r: float = 0.15, run_time: float = 0.75):
         circles = [None] * positions.shape[0]
         for i, pos in enumerate(positions):

@@ -189,6 +189,11 @@ def main():
         
         agent.choose_action(epsilon=0.)
         xs, ys, car_bounds, car_collides = get_lidar_lines(agent)
+        agent.current_step += 1
+        
+        if car_collides:
+            running = False
+            np.save("passing_times.npy", agent.node_passing_times)
         lidar_lines = np.vstack((xs, ys)).T
         car_center = (car_bounds[0, :] + car_bounds[-1, :]) / 2
         scaled_center = screen_scale * car_center
