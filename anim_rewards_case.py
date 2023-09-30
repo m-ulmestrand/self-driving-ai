@@ -11,18 +11,8 @@ class DrawRewardsCase(Scene):
         x_label = ax.get_x_axis_label("t")
         y_label = ax.get_y_axis_label("r(t)")
         x, y = self.get_reward(reward_pts)
-        where_rewards = np.logical_and(y != 0, y > 0)
-
-        vertex_graph2 = ax.plot_line_graph(
-            x[where_rewards], 
-            y[where_rewards],
-            vertex_dot_style=dict(stroke_width=3, fill_color=BLUE_E),
-        )
 
         line_graph = ax.plot_line_graph(x, y, add_vertex_dots=False, line_color=WHITE)
-        line_graph.set_z_index(vertex_graph2.z_index - 1)
-        ax.set_z_index(vertex_graph2.z_index - 2)
-
         self.play(Create(ax), Write(x_label), Write(y_label))
         self.wait(0.5)
         self.play(Write(line_graph), run_time=23)
