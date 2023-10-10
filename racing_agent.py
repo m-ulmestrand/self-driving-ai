@@ -7,7 +7,7 @@ Author: Mattias Ulmestrand
 
 
 import torch
-from torch import nn, tensor
+from torch import nn, Tensor
 import numpy as np
 from typing import Literal, Union
 from racing_network import DenseNetwork, get_network_classes
@@ -534,10 +534,10 @@ class RacingAgent:
 
     def append_tensors(
         self, 
-        rewards: tensor, 
-        actions: tensor, 
-        old_states: tensor, 
-        states: tensor
+        rewards: Tensor, 
+        actions: Tensor, 
+        old_states: Tensor, 
+        states: Tensor
     ):
         '''Appends to the replay buffer'''
         buffer_current_size = self.rewards_buffer.shape[0]
