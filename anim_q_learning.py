@@ -89,23 +89,48 @@ class DrawEquation(Scene):
             r"r(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
             font_size=30
         ).move_to(eq_pos)
-
-        new_list = np.array([
-            r"r",
-            r"(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
-            r"-",
-            r"Q(s_t, a_t",
-            r")"
-        ])
+        
         loss_pos = [0, -2, 0]
-        loss = MathTex(*new_list, font_size=30).move_to(loss_pos)
+        eq_sub = MathTex(
+            "r(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
+            "=",
+            "Q(s_t, a_t)",
+            font_size=30
+        ).move_to(loss_pos)
 
-        self.play(ReplacementTransform(orig_eq, loss))
-        new_list[0] = r"\left(r"
-        new_list[-1] = r")\right)^2"
-        new_loss = MathTex(*new_list, font_size=30).move_to(loss_pos)
-        self.play(ReplacementTransform(loss, new_loss))
+        loss = MathTex(
+            "r(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
+            "-",
+            "Q(s_t, a_t)",
+            font_size=30
+        ).move_to(loss_pos)
+
+        loss2 = MathTex(
+            "r", 
+            "(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
+            "-",
+            "Q(s_t, a_t",
+            ")",
+            font_size=30
+        ).move_to(loss_pos)
+
+        self.play(TransformMatchingTex(orig_eq, eq_sub))
+
+        self.play(ReplacementTransform(eq_sub, loss))
+        new_loss = MathTex(
+            "\left(r", 
+            "(s_t, a_t) + \gamma\max_a Q(s_{t+1}, a)",
+            "-",
+            "Q(s_t, a_t",
+            r")\right)^2",
+            font_size=30
+        ).move_to(loss_pos)
+        self.play(ReplacementTransform(loss, loss2), run_time=0)
+        self.play(TransformMatchingTex(loss2, new_loss))
         self.wait(5)
+        self.play(
+            *[FadeOut(mob) for mob in self.mobjects], run_time=1
+        )
 
     def append_text(self, tex_list: List[str], pos: np.ndarray = [0, 2, 0]):
         self.eq_texts.append(MathTex(*tex_list, font_size=30).move_to(pos))
