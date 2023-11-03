@@ -9,7 +9,7 @@ Author: Mattias Ulmestrand
 import torch
 from torch import nn, Tensor
 import numpy as np
-from typing import Literal, Union
+from typing import Literal, Union, Tuple
 from racing_network import DenseNetwork, get_network_classes
 from collision_handling import *
 from init_cuda import init_cuda
@@ -17,6 +17,7 @@ import math
 import os.path
 import json
 from copy import deepcopy
+from torch.nn.utils import clip_grad_norm_
 
 
 class RacingAgent:
@@ -44,6 +45,7 @@ class RacingAgent:
         batch_size: int = 100, 
         network_type: nn.Module = DenseNetwork,
         buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
+        gradient_clip: float = 10.0,
         network_params: tuple = (32, 32), 
         seq_length: int = 1, 
         generation_length: int = 2000, 
@@ -85,6 +87,7 @@ class RacingAgent:
         network_type: Which kind of network will be used
         buffer_behaviour: Determines whether to continuously discard old items, 
             or to just fill the buffer until full.
+        gradient_clip: Gradient clipping during optimization
         network_params: Network parameters as defined in racing_network.py
         seq_length: Sequence length for using RNN. For DenseNetwork, this should be 1
         generation_length: How long one generation can maximally be
@@ -164,11 +167,12 @@ class RacingAgent:
         self.target_network.load_state_dict(self.network.state_dict())
         self.target_network.eval()
         self.target_sync_period = target_sync
+        self.gradient_clip = gradient_clip
         self.device = init_cuda(device)
 
         # Learning parameters and various Q-learning parameters
-        self.rewards = torch.zeros(generation_length, dtype=torch.double)
-        self.rewards_buffer = torch.zeros(0, dtype=torch.double)
+        self.rewards = torch.zeros((generation_length, 1), dtype=torch.double)
+        self.rewards_buffer = torch.zeros((0, 1), dtype=torch.double)
         self.reward_method = {
             "continuous": self.reward_continuous,
             "rising": self.reward_rising
@@ -178,10 +182,10 @@ class RacingAgent:
         self.states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
         self.old_states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
-        self.actions = torch.zeros(generation_length, dtype=torch.long)
-        self.actions_buffer = torch.zeros(0, dtype=torch.long)
+        self.actions = torch.zeros((generation_length, 1), dtype=torch.long)
+        self.actions_buffer = torch.zeros((0, 1), dtype=torch.long)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
-        self.loss_function = torch.nn.MSELoss(reduction="mean").to(device)
+        self.loss_function = torch.nn.SmoothL1Loss(reduction="mean").to(device)
         self.batch_size = batch_size
         self.total_loss = 0
         self.longest_survival = 0
@@ -200,10 +204,10 @@ class RacingAgent:
         self.drift_velocity = self.velocity.copy()
         self.node_passing_times = np.zeros(0, dtype='intc')
         self.prev_vel = np.array([0, 0], dtype=float)
-        self.rewards = torch.zeros(self.generation_length, dtype=torch.double)
+        self.rewards = torch.zeros((self.generation_length, 1), dtype=torch.double)
         self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
-        self.actions = torch.zeros(self.generation_length, dtype=torch.long)
+        self.actions = torch.zeros((self.generation_length, 1), dtype=torch.long)
         self.has_collided = False
         self.passed_node = False
         self.current_node = 0
@@ -534,48 +538,32 @@ class RacingAgent:
 
     def append_tensors(
         self, 
-        rewards: Tensor, 
-        actions: Tensor, 
-        old_states: Tensor, 
-        states: Tensor
+        tensor_names: Tuple[str],
+        new_tensors: Tuple[Tensor]
     ):
         '''Appends to the replay buffer'''
         buffer_current_size = self.rewards_buffer.shape[0]
-        new_size = rewards.shape[0]
+        new_size = new_tensors[0].shape[0]
         surplus = buffer_current_size + new_size - self.buffer_size
 
         if self.buffer_behaviour == "discard_old":
             if surplus > 0:
-                self.rewards_buffer[0: buffer_current_size - surplus] = self.rewards_buffer[surplus: buffer_current_size].clone()
-                self.rewards_buffer[-surplus:] = rewards[:surplus]
-                self.rewards_buffer = torch.cat((self.rewards_buffer, rewards[surplus:]), dim=0)
-
-                self.actions_buffer[0: buffer_current_size - surplus] = self.actions_buffer[surplus: buffer_current_size].clone()
-                self.actions_buffer[-surplus:] = actions[:surplus]
-                self.actions_buffer = torch.cat((self.actions_buffer, actions[surplus:]), dim=0)
-
-                self.old_states_buffer[0: buffer_current_size - surplus] = \
-                    self.old_states_buffer[surplus: buffer_current_size].clone()
-                self.old_states_buffer[-surplus:] = old_states[:surplus]
-                self.old_states_buffer = torch.cat((self.old_states_buffer, old_states[surplus:]), dim=0)
-
-                self.states_buffer[0: buffer_current_size - surplus] = self.states_buffer[surplus: buffer_current_size].clone()
-                self.states_buffer[-surplus:] = states[:surplus]
-                self.states_buffer = torch.cat((self.states_buffer, states[surplus:]), dim=0)
-
+                for tensor_name, new_tensor in zip(tensor_names, new_tensors):
+                    tensor = self.__dict__[tensor_name]
+                    tensor[0: buffer_current_size - surplus] = tensor[surplus: buffer_current_size].clone()
+                    tensor[-surplus:] = new_tensor[:surplus]
+                    self.__dict__[tensor_name] = torch.cat((tensor, new_tensor[surplus:]))
             else:
-                self.rewards_buffer = torch.cat((self.rewards_buffer, rewards), dim=0)
-                self.actions_buffer = torch.cat((self.actions_buffer, actions), dim=0)
-                self.old_states_buffer = torch.cat((self.old_states_buffer, old_states), dim=0)
-                self.states_buffer = torch.cat((self.states_buffer, states), dim=0)
+                for tensor_name, new_tensor in zip(tensor_names, new_tensors):
+                    self.__dict__[tensor_name] = torch.cat((self.__dict__[tensor_name], new_tensor), dim=0)
 
         elif self.buffer_behaviour == "until_full":
             if buffer_current_size < self.buffer_size:
                 n_to_append = self.buffer_size - buffer_current_size
-                self.rewards_buffer = torch.cat((self.rewards_buffer, rewards[:n_to_append]), dim=0)
-                self.actions_buffer = torch.cat((self.actions_buffer, actions[:n_to_append]), dim=0)
-                self.old_states_buffer = torch.cat((self.old_states_buffer, old_states[:n_to_append]), dim=0)
-                self.states_buffer = torch.cat((self.states_buffer, states[:n_to_append]), dim=0)
+                for tensor_name, new_tensor in zip(tensor_names, new_tensors):
+                    self.__dict__[tensor_name] = torch.cat(
+                        (self.__dict__[tensor_name], new_tensor[:n_to_append])
+                    )
 
     def reward_rising(self):
         '''Gives rewards that rises between node passing points, then drops'''
@@ -634,8 +622,20 @@ class RacingAgent:
             # Will append with probability depending on how far the agent got
             do_append = np.random.rand() < len(self.node_passing_times) / self.append_scale
             if do_append and (self.has_collided or self.current_step == self.generation_length - 1) and self.current_step > 0:
-                self.append_tensors(self.rewards[:self.current_step], self.actions[:self.current_step],
-                                    self.old_states[:self.current_step], self.states[:self.current_step])
+                self.append_tensors(
+                    (
+                        "rewards_buffer",
+                        "actions_buffer",
+                        "old_states_buffer",
+                        "states_buffer"
+                    ),
+                    (
+                        self.rewards[:self.current_step], 
+                        self.actions[:self.current_step],
+                        self.old_states[:self.current_step], 
+                        self.states[:self.current_step]
+                    )
+                )
 
             if self.distance >= self.max_distance:
                 self.max_distance = self.distance.copy()
@@ -655,16 +655,19 @@ class RacingAgent:
                 self.optimizer.zero_grad()
                 end_index += batch_size
                 batch_inds = indices[start_index:end_index]
+                batch_states = self.states_buffer[batch_inds].to(self.device)
 
                 q_old = self.network(self.old_states_buffer[batch_inds].to(self.device))
-                q_new = self.target_network(self.states_buffer[batch_inds].to(self.device))
+                q_new = self.target_network(batch_states)
 
-                q_old_a = q_old[torch.arange(batch_inds.shape[0]), self.actions_buffer[batch_inds]]
-                q_new_max = torch.max(q_new, dim=1)[0]
+                q_old_a = q_old.gather(1, self.actions_buffer[batch_inds].to(self.device))
+                q_new_max = torch.max(q_new, dim=1, keepdim=True)[0].detach()
+
                 q_future = self.rewards_buffer[batch_inds].to(self.device) + self.gamma * q_new_max
 
                 loss = self.loss_function(q_future, q_old_a)
                 loss.backward()
+                clip_grad_norm_(self.network.parameters(), self.gradient_clip)
                 self.optimizer.step()
                 self.total_loss += loss.detach().cpu().item()
                 start_index += batch_size
