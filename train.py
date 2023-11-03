@@ -13,36 +13,36 @@ from racing_agent import RacingAgent
 from racing_network import *
 import numpy as np
 import sys
-
+import game
 
 def main():
     runs = 1500
-    training_track_numbers = [15]
+    training_track_numbers = [1, 8, 15]
     n_epochs = 1
     race_car = RacingAgent(
         box_size=100, 
         buffer_behaviour="discard_old", 
         turning_speed=0.125,
-        epsilon_start=0.5, 
+        epsilon_start=0., 
         epsilon_final=0., 
         epsilon_steps=1400,
         r_min=5., 
         buffer_size=5000, 
         seq_length=1, 
-        network_type=DenseNetwork,
+        network_type=DenseDuelingNetwork,
         network_params=(32,32,32), 
         target_sync=100, 
         generation_length=1000, 
         track_numbers=training_track_numbers,
         turn_radius_decay=1., 
         append_scale=20,
-        name='agent_dense3'
+        name='x'
     )
 
     # Change this to initialize and train a new agent.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
     # Both the final agent and the best performing one are saved.
-    race_car.load_network(name=race_car.save_name)
+    race_car.load_network(name="final_"+race_car.save_name)
     race_car.store_track(training_track_numbers[0])
 
     avg_interval = 50
@@ -62,6 +62,8 @@ def main():
     ax.legend(loc="upper left")
     fig.canvas.draw()
     plt.show(block=False)
+
+    save_generations = np.arange(0, 1500, 50, dtype="intc")
 
     message = ""
     for i in range(runs):
@@ -105,8 +107,10 @@ def main():
         fig.canvas.draw()
         fig.canvas.flush_events()
         fig.savefig("./figures/history.png", format="png")
+        race_car.save_network('final_' + race_car.save_name)
 
-    race_car.save_network('final_' + race_car.save_name)
+        if i in save_generations:
+            game.main(race_car.save_name, "racetrack16", f"gen{i}")
 
 
 if __name__ == "__main__":

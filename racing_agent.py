@@ -661,7 +661,10 @@ class RacingAgent:
                 q_new = self.target_network(batch_states)
 
                 q_old_a = q_old.gather(1, self.actions_buffer[batch_inds].to(self.device))
-                q_new_max = torch.max(q_new, dim=1, keepdim=True)[0].detach()
+                q_new_max = q_new.gather(
+                    1, self.network(batch_states).argmax(dim=1, keepdim=True)
+                ).detach()
+                # q_new_max = torch.max(q_new, dim=1, keepdim=True)[0].detach()
 
                 q_future = self.rewards_buffer[batch_inds].to(self.device) + self.gamma * q_new_max
 
@@ -671,6 +674,9 @@ class RacingAgent:
                 self.optimizer.step()
                 self.total_loss += loss.detach().cpu().item()
                 start_index += batch_size
+            
+            self.network.reset_noise()
+            self.target_network.reset_noise()
         self.total_loss /= n_epochs
         self.target_network.eval()
 

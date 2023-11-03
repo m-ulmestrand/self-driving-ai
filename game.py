@@ -19,6 +19,7 @@ import argparse
 import math
 from time import perf_counter
 from typing import List
+from pygame_screen_record import ScreenRecorder, RecordingSaver, add_codec
 
 
 class Car(pygame.sprite.Sprite):
@@ -113,63 +114,74 @@ def draw_track(inner_track: np.ndarray,
     pygame.draw.aalines(screen, 'black', False, outer_track_scaled)
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(
         description='Run a simulation with a trained agent.'
     )
     parser.add_argument(
         "--agent-name",
         required=False,
+        type=str,
         default="agent_dense",
         help="Name of the pretrained agent."
     )
     parser.add_argument(
         "--track-name",
         required=False,
+        type=str,
         default="racetrack15",
         help="Name of the track."
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--save-name",
+        default="default_name",
+        type=str
+    )
+
+    return parser.parse_args()
+
+def main(agent_name: str, track_name: str, save_name: str):
     box_size = 100
-    screen_scale = 10
+    screen_scale = 7
 
     max_turn_angle = math.pi / 4
     turning_speed = 0.125
     drift = 0.0
     acc = 0.005
-    model_config = RacingAgent.parse_json_config(args.agent_name)
+    model_config = RacingAgent.parse_json_config(agent_name)
 
     agent = RacingAgent(
         box_size=box_size, 
         buffer_size=1, 
         device='cpu',
         seq_length=model_config["seq_length"],
+        name=agent_name
     )
 
-    track = args.track_name
-    agent.save_name = args.agent_name
-    agent.store_track(track)
+    agent.store_track(track_name)
     agent.load_network(model_config=model_config)
     agent.set_agent_params(model_config)
     agent.turning_speed=turning_speed
     agent.drift=drift
     agent.acc=acc 
-
+    
     pygame.init()
     screen_x1 = box_size * screen_scale
     screen_x2 = 1.3 * screen_x1
     screen_y = box_size * screen_scale
     slider_width = (screen_x2 - screen_x1) * 0.9
-    screen = pygame.display.set_mode((screen_x2, screen_y))
+    screen = pygame.display.set_mode((screen_x1, screen_y))
+    add_codec("mp4", "mp4v")
+    recorder = ScreenRecorder(fps=60)
 
-    inner_line = np.load(f'tracks/{track}_inner_bound.npy')
-    outer_line = np.load(f'tracks/{track}_outer_bound.npy')
+    inner_line = np.load(f'tracks/{track_name}_inner_bound.npy')
+    outer_line = np.load(f'tracks/{track_name}_outer_bound.npy')
     # nodes = np.load(f'tracks/{track}.npy')
 
     car = Car(agent.position[0], agent.position[1], downscale=(200 // screen_scale))
     sprites = pygame.sprite.Group(car)
-    sliders = Sliders(screen, screen_x1, slider_width, 20, drift=drift, acc=acc, turn=max_turn_angle)
+    # sliders = Sliders(screen, screen_x1, slider_width, 20, drift=drift, acc=acc, turn=max_turn_angle)
 
     clock = pygame.time.Clock()
     running = True 
@@ -180,6 +192,7 @@ def main():
     track_background = pygame.image.load("background/track_background.jpg")
     track_rect = track_background.get_rect()
     
+    recorder.start_rec()
     while running and agent.current_step < agent.generation_length:
         events = pygame.event.get()
         for event in events:
@@ -193,7 +206,7 @@ def main():
         
         if car_collides:
             running = False
-            np.save("passing_times.npy", agent.node_passing_times)
+            # np.save("passing_times.npy", agent.node_passing_times)
         lidar_lines = np.vstack((xs, ys)).T
         car_center = (car_bounds[0, :] + car_bounds[-1, :]) / 2
         scaled_center = screen_scale * car_center
@@ -204,14 +217,17 @@ def main():
         pygame.draw.lines(screen, 'red', False, lidar_lines * screen_scale, width=2)
         sprites.update(scaled_center, agent.angle)
         sprites.draw(screen)
-        sliders.update(events, agent)
+        # sliders.update(events, agent)
 
         # pygame.draw.line(screen, "green", scaled_center, scaled_center + agent.velocity * 100)
         # pygame.draw.line(screen, "red", scaled_center, scaled_center + agent.drift_velocity * 100)
         pygame.display.update()
         clock.tick(60)
 
-    pygame.quit()
+    # saved_recordings = recorder.save_recordings("mp4", "./pygame_recordings")
+    recorder.stop_rec().get_single_recording().save((f"./pygame_recordings/{save_name}", "mp4"))
+    # pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args.agent_name, args.track_name, args.save_name)
