@@ -42,13 +42,14 @@ class RacingAgent:
         learning_rate: float = 0.001, 
         gamma: float = 0.9,
         reward_method: Literal["continuous", "rising"] = "continuous",
-        batch_size: int = 100, 
+        sample_size: int = 50, 
+        batch_size: int = 50,
         network_type: nn.Module = DenseNetwork,
         buffer_behaviour: Literal["until_full", "discard_old"] = "discard_old",
         gradient_clip: float = 10.0,
         network_params: tuple = (32, 32), 
         seq_length: int = 1, 
-        generation_length: int = 2000, 
+        generation_length: int = 1000, 
         track_numbers=np.arange(8), 
         target_sync: int = 150, 
         append_scale: int = 20, 
@@ -83,6 +84,7 @@ class RacingAgent:
         learning_rate: Rate of learning for the optimizer
         gamma: Discount for future Q-values
         reward_method: Which reward method to use
+        sample_size: Number of samples in training
         batch_size: Batch size for training
         network_type: Which kind of network will be used
         buffer_behaviour: Determines whether to continuously discard old items, 
@@ -113,9 +115,9 @@ class RacingAgent:
         self.drift_angle = 0
         self.position = np.array([0., 0.])
         self.prev_pos = self.position.copy()
-        self.distance = 0.
-        self.car_bounds = np.zeros((8, 2))
+        self.distance = np.zeros(sample_size)
         self.angles = np.array([-0.4, -0.2, 0.2, 0.4]) * np.pi
+        self.angles = np.repeat(self.angles[None, ...], sample_size, axis=0)
         self.current_node = 0
         self.max_distance = 0
         self.turning_angle = 0
@@ -127,7 +129,7 @@ class RacingAgent:
         self.drift = drift
         self.speed_lower = speed_lower
         self.max_angular_vel = speed / (self.r_min * math.tan(math.pi/2 - self.max_angle))
-        self.angle_buffer = 0
+        self.angle_buffer = np.zeros(sample_size)
         self.turn_radius_decay = turn_radius_decay
         self.save_name = name
 
@@ -143,7 +145,7 @@ class RacingAgent:
 
         # A few variables for checking progress on track
         self.has_collided = False
-        self.node_passing_times = np.zeros(0, dtype='intc')
+        self.node_passing_times = [np.zeros(0, dtype='intc') for _ in range(sample_size)]
         self.passed_node = False
 
         # Neural network parameters and training buffers
@@ -172,21 +174,18 @@ class RacingAgent:
 
         # Learning parameters and various Q-learning parameters
         self.rewards = torch.zeros((generation_length, 1), dtype=torch.double)
-        self.rewards_buffer = torch.zeros((0, 1), dtype=torch.double)
         self.reward_method = {
             "continuous": self.reward_continuous,
             "rising": self.reward_rising
         }[reward_method]
 
         self.states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
-        self.states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((generation_length, seq_length, self.n_inputs), dtype=torch.double)
-        self.old_states_buffer = torch.zeros((0, seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros((generation_length, 1), dtype=torch.long)
-        self.actions_buffer = torch.zeros((0, 1), dtype=torch.long)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
-        self.loss_function = torch.nn.SmoothL1Loss(reduction="mean").to(device)
+        self.loss_function = torch.nn.SmoothL1Loss(reduction="mean").to(device) # TODO
         self.batch_size = batch_size
+        self.sample_size = sample_size
         self.total_loss = 0
         self.longest_survival = 0
         self.append_scale = append_scale
@@ -194,28 +193,29 @@ class RacingAgent:
     def reinitialise(self, keep_progress: bool = False):
         '''Reinitialises the agent'''
         self.current_step = 0
-        self.position = np.copy(self.track_nodes[0])
+        self.position = np.repeat(self.track_nodes[0][None, ...], self.sample_size, axis=0)
         self.prev_pos = self.position.copy()
-        self.turning_angle = 0
+        self.turning_angle = np.zeros(self.sample_size)
         diff = self.track_nodes[1] - self.track_nodes[0]
-        self.angle = np.arctan2(diff[1], diff[0])
+        self.angle = np.full(self.sample_size, np.arctan2(diff[1], diff[0]))
         self.drift_angle = self.angle.copy()
         self.velocity = diff / np.sqrt(np.sum(diff**2)) * self.max_speed * 0.5
+        self.velocity = np.repeat(self.velocity[None, ...], self.sample_size, axis=0)
         self.drift_velocity = self.velocity.copy()
-        self.node_passing_times = np.zeros(0, dtype='intc')
+        self.node_passing_times = [np.zeros(0, dtype='intc') for _ in range(self.sample_size)]
         self.prev_vel = np.array([0, 0], dtype=float)
         self.rewards = torch.zeros((self.generation_length, 1), dtype=torch.double)
         self.states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.old_states = torch.zeros((self.generation_length, self.seq_length, self.n_inputs), dtype=torch.double)
         self.actions = torch.zeros((self.generation_length, 1), dtype=torch.long)
-        self.has_collided = False
-        self.passed_node = False
+        self.has_collided = np.zeros(self.sample_size, dtype=bool)
+        self.passed_node = np.zeros(self.sample_size, dtype=bool)
         self.current_node = 0
         self.total_loss = 0
 
         if not keep_progress:
             self.generation += 1
-            self.distance = 0.
+            self.distance = np.zeros(self.sample_size)
 
     def reinitialise_with_track(
             self, track_name: Union[str, int] = None, keep_progress: bool = False
@@ -340,40 +340,35 @@ class RacingAgent:
         self.track_nodes = np.load(track_name + npy)
         self.track_inner = np.load(track_name + '_inner_bound' + npy)
         self.track_outer = np.load(track_name + '_outer_bound' + npy)
-        self.position = np.copy(self.track_nodes[0])
+        self.position = np.repeat(self.track_nodes[0][None, ...], self.sample_size, axis=0)
         diff = self.track_nodes[1] - self.track_nodes[0]
         self.velocity = diff / np.sqrt(np.sum(diff ** 2)) * self.max_speed * 0.5
+        self.velocity = np.repeat(self.velocity[None, ...], self.sample_size, axis=0)
         self.drift_velocity = self.velocity.copy()
-        self.angle = np.arctan2(diff[1], diff[0])
+        self.angle = np.full(self.sample_size, np.arctan2(diff[1], diff[0]))
         self.drift_angle = self.angle.copy()
-        self.car_bounds = car_lines(self.position, self.angle, self.car_width, self.car_length)
-
-    def get_epsilon(self):
-        '''Returns the current value for epsilon'''
-        if self.generation < self.epsilon_steps:
-            scale = self.epsilon_start - self.epsilon_final
-            return self.epsilon_start - scale * (self.generation / self.epsilon_steps)
-        return self.epsilon_final
 
     def move(self):
         '''Moves the agent with current settings'''
-        speed = math.sqrt(np.sum(self.velocity ** 2))
-        angular_vel = speed * self.turn_radius_decay ** (-speed) / (self.r_min * math.tan(math.pi/2 - self.turning_angle))
+        speed = np.sqrt(np.sum(self.velocity ** 2, axis=1))
+        angular_vel = speed * self.turn_radius_decay ** (-speed) / (
+            self.r_min * np.tan(math.pi/2 - self.turning_angle)
+        )
         self.angle = (self.angle + angular_vel) % (2 * math.pi)
         self.angle_buffer += angular_vel
         max_angular_vel = self.max_angular_vel * (1 - self.drift)
-        drift_angular_vel = max(min(max_angular_vel, self.angle_buffer), -max_angular_vel)
+        drift_angular_vel = np.maximum(np.minimum(max_angular_vel, self.angle_buffer), -max_angular_vel)
         self.drift_angle = (self.drift_angle + drift_angular_vel) % (2 * math.pi)
         self.angle_buffer -= drift_angular_vel
-        self.velocity[0] = math.cos(self.angle) * speed
-        self.velocity[1] = math.sin(self.angle) * speed
-        self.drift_velocity[0] = math.cos(self.drift_angle) * speed
-        self.drift_velocity[1] = math.sin(self.drift_angle) * speed
+        self.velocity[:, 0] = math.cos(self.angle) * speed
+        self.velocity[:, 1] = math.sin(self.angle) * speed
+        self.drift_velocity[:, 0] = np.cos(self.drift_angle) * speed
+        self.drift_velocity[:, 1] = np.sin(self.drift_angle) * speed
         self.position += self.drift_velocity
 
-    def get_features(self, other_agents: list = None):
+    def get_features(self, batch_index: int = 0, other_agents: list = None):
         '''Returns the features: LiDAR line measurements, speed and angle'''
-        position = self.position
+        position = self.position[batch_index]
         nodes = self.track_nodes
         track_outer = self.track_outer
         track_inner = self.track_inner
@@ -383,19 +378,22 @@ class RacingAgent:
         if node_index > self.current_node or (len(self.node_passing_times) > 0 and
                                               (node_index == 0 and self.current_node == nodes.shape[0] - 3)):
             self.current_node = node_index
-            self.node_passing_times = np.append(self.node_passing_times, self.current_step)
-            self.passed_node = True
-            self.distance += np.sqrt(np.sum((self.position - self.prev_pos) ** 2))
-            self.prev_pos = self.position.copy()
+            self.node_passing_times[batch_index] = np.append(
+                self.node_passing_times[batch_index], self.current_step
+            )
+            self.passed_node[batch_index] = True
+            self.distance[batch_index] += np.sqrt(np.sum((position - self.prev_pos[batch_index]) ** 2))
+            self.prev_pos[batch_index] = self.position.copy()
 
         dist_to_node = np.sqrt(np.sum((position - nodes[node_index]) ** 2))
-        vector = np.array([np.cos(self.angle), np.sin(self.angle)])
+        angle = self.angle[batch_index]
+        vector = np.array([math.cos(angle), math.sin(angle)])
         vector /= np.sqrt(np.sum(vector ** 2))
         car_front = position + vector * self.car_length
         vector *= self.diag
-        new_vectors = rotate(self.angles, vector.reshape((2, 1)))
+        new_vectors = rotate(self.angles[batch_index], vector.reshape((2, 1)))
         new_vectors = np.append(new_vectors, vector.reshape((1, 2)), axis=0)
-        car_bounds = car_lines(position, self.angle, self.car_width, self.car_length)
+        car_bounds = car_lines(position, angle, self.car_width, self.car_length)
         features = torch.ones((1, self.seq_length, self.n_inputs), dtype=torch.double)
 
         for i, vec in enumerate(new_vectors):
@@ -438,8 +436,8 @@ class RacingAgent:
                         car_collides = True
                         break
 
-        features[0, -1, -2] = self.turning_angle / self.max_angle
-        features[0, -1, -1] = np.sqrt(np.sum(self.velocity ** 2)) / self.max_speed
+        features[0, -1, -2] = self.turning_angle[batch_index] / self.max_angle
+        features[0, -1, -1] = np.sqrt(np.sum(self.velocity[batch_index] ** 2)) / self.max_speed
         
         if self.seq_length > 1:
             if self.current_step != 0:
@@ -451,68 +449,54 @@ class RacingAgent:
         self.has_collided = car_collides
         return features
 
-    def turn_left(self):
-        max_angle = self.max_angle
-        self.turning_angle = max_angle if self.turning_angle > max_angle else self.turning_angle + self.turning_speed
+    def turn_left(self, batch_index: int):
+        self.turning_angle[batch_index] = min(self.turning_angle[batch_index], self.max_angle)
 
-    def turn_right(self):
-        min_angle = -self.max_angle
-        self.turning_angle = min_angle if self.turning_angle < min_angle else self.turning_angle - self.turning_speed
+    def turn_right(self, batch_index: int):
+        self.turning_angle[batch_index] = max(self.turning_angle[batch_index], -self.max_angle)
 
-    def take_action(self, action: int):
+    def take_action(self, actions: np.ndarray):
         '''Performs a selected action'''
-        current_speed = math.sqrt(np.sum(self.velocity ** 2))
-        if action == 0:
-            self.turn_left()
-        elif action == 1:
-            self.turn_right()
-        elif action == 2 and current_speed < self.max_speed:
-            # Accelerate
-            self.velocity[0] += math.cos(self.angle) * self.acc
-            self.velocity[1] += math.sin(self.angle) * self.acc
-            new_speed = math.sqrt(np.sum(self.velocity ** 2))
-            if new_speed > self.max_speed:
-                self.velocity *= (self.max_speed / new_speed)
-        else:
-            # Decelerate
-            if current_speed > self.speed_lower * self.max_speed:
-                self.velocity = self.velocity * self.dec
+        current_speed = np.sqrt(np.sum(self.velocity ** 2, axis=1))
+        for batch_index in range(self.sample_size):
+            action = actions[batch_index]
+            if action == 0:
+                self.turn_left(batch_index)
+            elif action == 1:
+                self.turn_right(batch_index)
+            elif action == 2 and current_speed[batch_index] < self.max_speed:
+                # Accelerate
+                self.velocity[batch_index, 0] += math.cos(self.angle[batch_index]) * self.acc
+                self.velocity[batch_index, 1] += math.sin(self.angle[batch_index]) * self.acc
+                new_speed = math.sqrt(np.sum(self.velocity[batch_index] ** 2))
+                if new_speed > self.max_speed:
+                    self.velocity[batch_index] *= (self.max_speed / new_speed)
+            else:
+                # Decelerate
+                if current_speed[batch_index] > self.speed_lower * self.max_speed:
+                    self.velocity[batch_index] = self.velocity[batch_index] * self.dec
 
         self.move()
-        self.states[self.current_step] = self.get_features()[0]
 
-    def forward_pass(self, features):
+    def forward_pass(self, features: Tensor):
         return self.network(features.to(self.device))
 
-    def choose_action(self, epsilon: float = None, return_hidden_states: bool = False):
-        '''Chooses an action depending on value of epsilon'''
+    def choose_action(self, return_hidden_states: bool = False):
+        '''Chooses an action with the policy network'''
 
-        # Exploration
-        eps = self.get_epsilon() if epsilon is None else epsilon
-        if np.random.rand() < eps:
-            action = np.random.randint(0, self.n_actions)
-            if self.current_step == 0:
-                self.old_states[self.current_step] = self.get_features()[0]
-            else:
-                self.old_states[self.current_step] = \
-                    self.states[self.current_step-1]. \
-                    reshape((self.seq_length, self.n_inputs))
+        self.network.eval()
 
-        # Exploitation
+        if self.current_step == 0:
+            features = self.get_features()
         else:
-            self.network.eval()
-
-            if self.current_step == 0:
-                features = self.get_features()
-            else:
-                features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
-            self.old_states[self.current_step] = features[0]
-            
-            if return_hidden_states:
-                output, h_states, edges = self.network(features.to(self.device), True)
-            else:
-                output = self.network(features.to(self.device))
-            action = torch.argmax(output).detach().cpu().item()
+            features = self.states[self.current_step-1].reshape((1, self.seq_length, self.n_inputs))
+        self.old_states[self.current_step] = features[0]
+        
+        if return_hidden_states:
+            output, h_states, edges = self.network(features.to(self.device), True)
+        else:
+            output = self.network(features.to(self.device))
+        action = torch.argmax(output).detach().cpu().item()
 
         self.actions[self.current_step] = action
         self.take_action(action)
