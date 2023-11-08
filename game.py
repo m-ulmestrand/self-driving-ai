@@ -132,7 +132,7 @@ def main():
 
     args = parser.parse_args()
     box_size = 100
-    screen_scale = 10
+    screen_scale = 8
 
     max_turn_angle = math.pi / 4
     turning_speed = 0.125
@@ -142,9 +142,9 @@ def main():
 
     agent = RacingAgent(
         box_size=box_size, 
-        buffer_size=1, 
         device='cpu',
         seq_length=model_config["seq_length"],
+        sample_size=1
     )
 
     track = args.track_name
@@ -167,7 +167,7 @@ def main():
     outer_line = np.load(f'tracks/{track}_outer_bound.npy')
     # nodes = np.load(f'tracks/{track}.npy')
 
-    car = Car(agent.position[0], agent.position[1], downscale=(200 // screen_scale))
+    car = Car(agent.position[0, 0], agent.position[0, 1], downscale=(200 // screen_scale))
     sprites = pygame.sprite.Group(car)
     sliders = Sliders(screen, screen_x1, slider_width, 20, drift=drift, acc=acc, turn=max_turn_angle)
 
@@ -187,13 +187,12 @@ def main():
                 pygame.quit()
                 exit()
         
-        agent.choose_action(epsilon=0.)
-        xs, ys, car_bounds, car_collides = get_lidar_lines(agent)
+        agent.choose_action()
+        xs, ys, car_bounds, car_collides = get_lidar_lines(agent, 0)
         agent.current_step += 1
         
         if car_collides:
             running = False
-            np.save("passing_times.npy", agent.node_passing_times)
         lidar_lines = np.vstack((xs, ys)).T
         car_center = (car_bounds[0, :] + car_bounds[-1, :]) / 2
         scaled_center = screen_scale * car_center

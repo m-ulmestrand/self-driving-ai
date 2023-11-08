@@ -115,19 +115,21 @@ def car_lines(pos, angle, width, length):
     return lines
 
 
-def get_lidar_lines(racer):
-    node_index = get_node(racer.track_nodes[:-1], racer.position)
-    dist_to_node = np.sqrt(np.sum((racer.position - racer.track_nodes[node_index]) ** 2))
-    vector = np.array([np.cos(racer.angle), np.sin(racer.angle)])
+def get_lidar_lines(racer, sample_index: int):
+    position = racer.position[sample_index]
+    angle = racer.angle[sample_index]
+    node_index = get_node(racer.track_nodes[:-1], position)
+    dist_to_node = np.sqrt(np.sum((position - racer.track_nodes[node_index]) ** 2))
+    vector = np.array([np.cos(angle), np.sin(angle)])
     vector /= np.sqrt(np.sum(vector ** 2))
-    car_front = racer.position + vector * racer.car_length
+    car_front = position + vector * racer.car_length
     vector *= racer.diag
-    new_vectors = rotate(racer.angles, vector.reshape((2, 1)))
+    new_vectors = rotate(racer.angles[sample_index], vector.reshape((2, 1)))
     new_vectors = np.append(new_vectors, vector.reshape((1, 2)), axis=0)
     xs = np.zeros(new_vectors.shape[0] * 2)
     ys = np.zeros(new_vectors.shape[0] * 2)
     angle = np.arctan2(vector[1], vector[0])
-    car_bounds = car_lines(racer.position, racer.angle, racer.car_width, racer.car_length)
+    car_bounds = car_lines(position, angle, racer.car_width, racer.car_length)
 
     for i, vec in enumerate(new_vectors):
         this_i = i * 2

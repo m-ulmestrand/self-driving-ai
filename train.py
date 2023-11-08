@@ -18,25 +18,25 @@ import sys
 def main():
     runs = 1500
     training_track_numbers = [15]
-    n_epochs = 1
+    n_epochs = 10
     race_car = RacingAgent(
         box_size=100, 
         buffer_behaviour="discard_old", 
         turning_speed=0.125,
-        epsilon_start=0.5, 
-        epsilon_final=0., 
-        epsilon_steps=1400,
-        r_min=5., 
-        buffer_size=5000, 
+        r_min=5.,  
         seq_length=1, 
         network_type=DenseNetwork,
         network_params=(32,32,32), 
-        target_sync=100, 
         generation_length=1000, 
+        c_entropy=0.02,
+        c_value=0.75,
+        policy_lr=5e-4,
+        value_lr=1e-3,
+        gradient_clip=10.,
         track_numbers=training_track_numbers,
         turn_radius_decay=1., 
         append_scale=20,
-        name='agent_dense3'
+        name='agent_dense_policy'
     )
 
     # Change this to initialize and train a new agent.
@@ -65,24 +65,24 @@ def main():
 
     message = ""
     for i in range(runs):
-        n_nodes = np.zeros(len(training_track_numbers), dtype="intc")
-        for j, track_number in enumerate(training_track_numbers):
-            race_car.reinitialise_with_track(track_number, keep_progress=True)
-            while not race_car.has_collided and race_car.current_step < race_car.generation_length:
-                race_car.choose_action()
-                race_car.reward_per_node()
-            n_nodes[j] = len(race_car.node_passing_times)
+        track_number = int(np.random.choice(training_track_numbers))
+        race_car.reinitialise_with_track(track_number, keep_progress=True)
+        all_collided = (race_car.collision_times < race_car.generation_length - 1).all()
+        while not all_collided and race_car.current_step < race_car.generation_length:
+            race_car.choose_action()
+            race_car.reward_per_node()
 
         race_car.reinforce(n_epochs)
+        max_distance = race_car.distance.max()
         sys.stdout.write("\b" * len(message))
         message = f"Generation: {i}, " \
-                    f"Number of passed nodes: {n_nodes}, " \
-                    f"Distance: {race_car.distance:.2f}, " \
-                    f"Epsilon: {race_car.get_epsilon():.2f}, " \
-                    f"Loss: {race_car.total_loss:.4f}"
+                    f"Distance: {max_distance:.2f}, " \
+                    f"Policy expectation: {race_car.policy_expectation}, " \
+                    f"Value loss: {race_car.value_loss:.4f}, " \
+                    f"Entropy: {race_car.entropy:.4f}"
         sys.stdout.write(message)
 
-        current_dist = race_car.distance
+        current_dist = max_distance
         if current_dist > y_max:
             y_max = current_dist
             ax.set_ylim([0, y_max * 1.1])

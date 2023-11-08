@@ -6,6 +6,7 @@ from numpy import sqrt
 import importlib
 import inspect
 from pathlib import Path
+import torch.nn.functional as F
 
 
 def get_network_classes():
@@ -28,11 +29,37 @@ class DenseNetwork(nn.Module):
             param_dict["n_outputs"]
         ]
         self.n_neurons = n_neurons
-        self.layers = nn.ModuleList()
         self.device = device
+        self.feature_layers = nn.ModuleList()
+        self.value_lr = param_dict["value_lr"]
+        self.policy_lr = param_dict["policy_lr"]
+        
+        for i in range(len(n_neurons)-3):
+            self.feature_layers.append(Linear(n_neurons[i], n_neurons[i + 1]))
+            self.feature_layers.append(nn.BatchNorm1d(n_neurons[i + 1]))
+            self.feature_layers.append(nn.ReLU())
+        
+        self.value_network = nn.Sequential(
+            Linear(n_neurons[-3], n_neurons[-2]),
+            nn.BatchNorm1d(n_neurons[-2]),
+            nn.ReLU(inplace=True),
+            Linear(n_neurons[-2], 1)
+        )
+        self.policy_network = nn.Sequential(
+            Linear(n_neurons[-3], n_neurons[-2]),
+            nn.BatchNorm1d(n_neurons[-2]),
+            nn.ReLU(inplace=True),
+            Linear(n_neurons[-2], n_neurons[-1])
+        )
 
-        for i in range(len(n_neurons)-1):
-            self.layers.append(Linear(n_neurons[i], n_neurons[i + 1]))
+        self.value_optimizer = torch.optim.Adam(
+            self.value_network.parameters(),
+            lr=param_dict["value_lr"]
+        )
+        self.policy_optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=param_dict["policy_lr"]
+        )
         self.double()
         self.to(device)
 
@@ -46,16 +73,21 @@ class DenseNetwork(nn.Module):
         x = edges.sum(dim=1)[None, :] + layer.bias
         return x, edges
 
-    def forward(self, x: torch.tensor, return_hidden: bool = False):
+    def forward(self, x: torch.tensor, return_hidden: bool = False, get_values: bool = False):
         x_size = x.size()
         x = x.view((x_size[0], x_size[-1]))
 
         if not return_hidden:
-            for layer in self.layers[:-1]:
+            for layer in self.feature_layers:
                 x = layer(x)
-                x = x.relu()
-            x = self.layers[-1](x)
-            return x
+
+            policy = self.policy_network(x)
+            
+            if get_values:
+                values = self.value_network(x.detach())
+                return policy, values
+                
+            return policy
         
         else:
             edges = [None for _ in range(len(self.layers))]
