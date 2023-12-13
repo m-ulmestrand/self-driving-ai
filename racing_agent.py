@@ -451,13 +451,26 @@ class RacingAgent:
         self.has_collided = car_collides
         return features
 
+    def accelerate(self):
+        self.velocity[0] += math.cos(self.angle) * self.acc
+        self.velocity[1] += math.sin(self.angle) * self.acc
+        new_speed = math.sqrt(np.sum(self.velocity ** 2))
+        if new_speed > self.max_speed:
+            self.velocity *= (self.max_speed / new_speed)
+
+    def decelerate(self):
+        self.velocity = self.velocity * self.dec
+
     def turn_left(self):
-        max_angle = self.max_angle
-        self.turning_angle = max_angle if self.turning_angle > max_angle else self.turning_angle + self.turning_speed
+        self.turning_angle = min(self.turning_angle + self.turning_speed, self.max_angle)
 
     def turn_right(self):
-        min_angle = -self.max_angle
-        self.turning_angle = min_angle if self.turning_angle < min_angle else self.turning_angle - self.turning_speed
+        self.turning_angle = max(self.turning_angle - self.turning_speed, -self.max_angle)
+
+    def limit_speeds(self):
+        speed = math.sqrt(np.sum(self.velocity ** 2))
+        clipped_speeds = np.clip(speed, self.speed_lower * self.max_speed, self.max_speed)
+        self.velocity = self.velocity * (clipped_speeds / speed)
 
     def take_action(self, action: int):
         '''Performs a selected action'''
@@ -467,17 +480,11 @@ class RacingAgent:
         elif action == 1:
             self.turn_right()
         elif action == 2 and current_speed < self.max_speed:
-            # Accelerate
-            self.velocity[0] += math.cos(self.angle) * self.acc
-            self.velocity[1] += math.sin(self.angle) * self.acc
-            new_speed = math.sqrt(np.sum(self.velocity ** 2))
-            if new_speed > self.max_speed:
-                self.velocity *= (self.max_speed / new_speed)
+            self.accelerate()
         else:
-            # Decelerate
-            if current_speed > self.speed_lower * self.max_speed:
-                self.velocity = self.velocity * self.dec
-
+            self.decelerate()
+        
+        self.limit_speeds()
         self.move()
         self.states[self.current_step] = self.get_features()[0]
 
