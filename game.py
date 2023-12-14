@@ -19,6 +19,7 @@ import argparse
 import math
 from time import perf_counter
 from typing import List
+from pygame_recorder import ScreenRecorder
 
 
 class Car(pygame.sprite.Sprite):
@@ -113,24 +114,35 @@ def draw_track(inner_track: np.ndarray,
     pygame.draw.aalines(screen, 'black', False, outer_track_scaled)
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(
         description='Run a simulation with a trained agent.'
     )
     parser.add_argument(
         "--agent-name",
         required=False,
+        type=str,
         default="agent_dense",
         help="Name of the pretrained agent."
     )
     parser.add_argument(
         "--track-name",
         required=False,
+        type=str,
         default="racetrack15",
         help="Name of the track."
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--save-name",
+        default="default_name",
+        type=str
+    )
+
+    return parser.parse_args()
+
+def main(agent_name: str, track_name: str, save_name: str):
+
     box_size = 100
     screen_scale = 10
 
@@ -138,7 +150,7 @@ def main():
     turning_speed = 0.125
     drift = 0.0
     acc = 0.005
-    model_config = RacingAgent.parse_json_config(args.agent_name)
+    model_config = RacingAgent.parse_json_config(agent_name)
 
     agent = RacingAgent(
         box_size=box_size, 
@@ -147,9 +159,8 @@ def main():
         seq_length=model_config["seq_length"],
     )
 
-    track = args.track_name
-    agent.save_name = args.agent_name
-    agent.store_track(track)
+    agent.save_name = agent_name
+    agent.store_track(track_name)
     agent.load_network(model_config=model_config)
     agent.set_agent_params(model_config)
     agent.turning_speed=turning_speed
@@ -158,13 +169,14 @@ def main():
 
     pygame.init()
     screen_x1 = box_size * screen_scale
-    screen_x2 = 1.3 * screen_x1
+    screen_x2 = int(1.3 * screen_x1)
     screen_y = box_size * screen_scale
     slider_width = (screen_x2 - screen_x1) * 0.9
     screen = pygame.display.set_mode((screen_x2, screen_y))
+    recorder = ScreenRecorder(screen_x2, screen_y, 60, "./pygame_recordings/" + save_name + ".avi")
 
-    inner_line = np.load(f'tracks/{track}_inner_bound.npy')
-    outer_line = np.load(f'tracks/{track}_outer_bound.npy')
+    inner_line = np.load(f'tracks/{track_name}_inner_bound.npy')
+    outer_line = np.load(f'tracks/{track_name}_outer_bound.npy')
     # nodes = np.load(f'tracks/{track}.npy')
 
     car = Car(agent.position[0], agent.position[1], downscale=(200 // screen_scale))
@@ -209,9 +221,12 @@ def main():
         # pygame.draw.line(screen, "green", scaled_center, scaled_center + agent.velocity * 100)
         # pygame.draw.line(screen, "red", scaled_center, scaled_center + agent.drift_velocity * 100)
         pygame.display.update()
+        recorder.capture_frame(screen)
         clock.tick(60)
 
-    pygame.quit()
+    recorder.end_recording()
+    # pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args.agent_name, args.track_name, args.save_name)
