@@ -18,7 +18,7 @@ import sys
 
 def main():
     runs = 1500
-    training_track_numbers = [1, 8, 15]
+    training_track_numbers = [15]
     n_epochs = 1
     race_car = RacingAgent(
         box_size=100, 
@@ -29,21 +29,21 @@ def main():
         epsilon_steps=1400,
         r_min=5., 
         buffer_size=5000, 
-        seq_length=5, 
-        network_type=AttentionNetwork,
-        network_params=(32,8,4), 
-        target_sync=50, 
+        seq_length=1, 
+        network_type=DenseNetwork,
+        network_params=(32,32,32), 
+        target_sync=75, 
         generation_length=1000, 
         track_numbers=training_track_numbers,
         turn_radius_decay=1., 
         append_scale=20,
-        name='agent_attn_test'
+        name='agent_test'
     )
 
     # Change this to initialize and train a new agent.
     # Trained agents are saved at ./build, load just the name without the .pt extension.
     # Both the final agent and the best performing one are saved.
-    race_car.load_network(name=race_car.save_name)
+    # race_car.load_network(name=race_car.save_name)
     race_car.store_track(training_track_numbers[0])
 
     avg_interval = 50
