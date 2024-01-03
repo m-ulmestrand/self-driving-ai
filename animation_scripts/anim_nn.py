@@ -85,12 +85,12 @@ class DrawNet(Scene):
         
         self.wait(2)
         s_brace = BraceBetweenPoints([brace_x, neurons_y[0][0] - 0.1, 0], [brace_x, neurons_y[0][-1] + 0.1, 0], LEFT)
-        s_text = MathTex(r"s", font_size=30).next_to(s_brace, LEFT)
+        s_text = MathTex(r"\mathbf{s}", font_size=30).next_to(s_brace, LEFT)
         self.play(Create(s_brace), Write(s_text))
 
         brace_x = x + 1
         a_brace = BraceBetweenPoints([brace_x, neurons_y[-1][0] - 0.1, 0], [brace_x, neurons_y[-1][-1] + 0.1, 0], RIGHT)
-        a_text = MathTex(r"Q(s, \mathbf{a})", font_size=30).next_to(a_brace, RIGHT)
+        a_text = MathTex(r"Q(\mathbf{s}, \mathbf{a})", font_size=30).next_to(a_brace, RIGHT)
         self.play(Create(a_brace), Write(a_text))
 
         self.wait(2)
