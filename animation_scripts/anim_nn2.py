@@ -326,8 +326,17 @@ class DrawNet2(Scene):
         loss_text_pos = nn_out_text_pos.copy()
         loss_text_pos[1] -= 1
         loss_text = MathTex(
-            r"L_\text{MSE}(\mathbf{Y}, \mathbf{Y}_\text{true}) = \frac{1}{n}\sum_{i=1}^n\left(\mathbf{y}^{(i)} - \mathbf{y}_\text{true}^{(i)}\right)^2",
+            r"L_\text{MSE}(\mathbf{Y}_\text{true}, \mathbf{Y}) = \frac{1}{n}\sum_{i=1}^n\left(\mathbf{y}_\text{true}^{(i)} - \mathbf{y}^{(i)}\right)^2",
             font_size=DEFAULT_FONT_SIZE * 0.75
         ).move_to(loss_text_pos).align_to(loss_text_pos, LEFT)
         self.play(Write(loss_text))
-        self.wait(5)
+        loss_text.generate_target()
+        loss_text.target.move_to(np.zeros(3))
+        loss_text.target.font_size = DEFAULT_FONT_SIZE
+        self.wait(2)
+
+        self.play(
+            *[FadeOut(mob) for mob in self.mobjects],
+            MoveToTarget(loss_text),
+            run_time=1,
+        )
