@@ -216,7 +216,7 @@ def main(track_name: str, save_name: str):
             turning_radius = int(np.linalg.norm(screen_scale * bottom_distance * bottom_vector))
             gfxdraw.filled_circle(screen, *focal_point, 4, (0, 0, 255))
             gfxdraw.aacircle(screen, *focal_point, 4, (0, 0, 255))
-            gfxdraw.aacircle(screen, *focal_point, turning_radius, (0, 0, 255))
+            # gfxdraw.aacircle(screen, *focal_point, turning_radius, (0, 0, 255, 120))
         
         rect_x1 = screen_x1
         rect_width = screen_x2 - screen_x1

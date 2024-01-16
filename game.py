@@ -212,8 +212,15 @@ def main(agent_name: str, track_name: str, save_name: str):
 
         screen.fill('white')
         screen.blit(track_background, track_rect)
-        pygame.draw.lines(screen, 'black', False, car_bounds * screen_scale)
-        pygame.draw.lines(screen, 'red', False, lidar_lines * screen_scale, width=2)
+        scaled_lidar_lines = screen_scale * lidar_lines
+        # pygame.draw.aalines(screen, 'black', False, car_bounds * screen_scale)
+        pygame.draw.aalines(screen, 'red', False, scaled_lidar_lines)
+
+        for i in range(1, scaled_lidar_lines.shape[0], 2):
+            circle_xy = scaled_lidar_lines[i].astype(int)
+            gfxdraw.filled_circle(screen, *circle_xy, 2, (255, 0, 0))
+            gfxdraw.aacircle(screen, *circle_xy, 2, (255, 0, 0))
+
         sprites.update(scaled_center, agent.angle)
         sprites.draw(screen)
         sliders.update(events, agent)
