@@ -74,7 +74,7 @@ def draw_track(inner_track: np.ndarray,
     # Drawing track outline
     pygame.draw.aalines(screen, "black", False, inner_track_scaled)
     pygame.draw.aalines(screen, "black", False, outer_track_scaled)
-
+    
 
 def text(s: str, font: pygame.font.Font) -> pygame.Surface:
     return font.render(s, True, (0, 0, 0))
@@ -100,6 +100,69 @@ def parse_args():
     return parser.parse_args()
 
 def main(track_name: str, save_name: str):
+
+    def get_wheel_lines():
+        total_angle = agent.angle + agent.turning_angle
+
+        # scale decides how far we are willing to look for an intersection
+        scale = box_size * 100
+        top_vector = scale * (np.array([-math.sin(total_angle), math.cos(total_angle)]))
+
+        bottom_line = car_bounds[0:2]
+
+        if agent.turning_angle < 0:
+            bottom_line = bottom_line[::-1]
+            top_vector *= -1
+
+        top_line = car_bounds[6:8]
+        top_line[0] = top_line.mean(axis=0)
+        top_line[1] = top_line[0] + top_vector
+        bottom_vector = scale * (bottom_line[0] - bottom_line[1])
+        bottom_line[1] = bottom_line[0] + bottom_vector
+
+        top_distance = line_intersect_distance(top_line[0], top_line[1], bottom_line[0], bottom_line[1])
+        bottom_distance = line_intersect_distance(bottom_line[0], bottom_line[1], top_line[0], top_line[1])
+        top_line[1] = top_line[0] + top_distance * top_vector
+        bottom_line[1] = bottom_line[0] + bottom_distance * bottom_vector
+
+        return bottom_distance, top_distance, bottom_line, top_line, bottom_vector
+
+
+    def plot_turning_circle():
+        bottom_distance, top_distance, bottom_line, top_line, bottom_vector = get_wheel_lines()
+
+        if top_distance != 0:
+            pygame.draw.aalines(screen, "blue", False, bottom_line * screen_scale)
+            pygame.draw.aalines(screen, "blue", False, top_line * screen_scale)
+
+            focal_point = (top_line[1] * screen_scale).astype(int)
+            turning_radius = int(np.linalg.norm(screen_scale * bottom_distance * bottom_vector))
+            gfxdraw.filled_circle(screen, *focal_point, 4, (0, 0, 255))
+            gfxdraw.aacircle(screen, *focal_point, 4, (0, 0, 255))
+            # gfxdraw.aacircle(screen, *focal_point, turning_radius, (0, 0, 255, 120))
+
+
+    def plot_arc():
+        bottom_distance, top_distance, bottom_line, top_line, bottom_vector = get_wheel_lines()
+
+        if top_distance != 0:
+            turning_sign = np.sign(agent.turning_angle)
+            angle_deg = 1
+            angle = np.radians(angle_deg) * turning_sign
+
+            c, s = np.cos(angle), np.sin(angle)
+            rotation_matrix = np.array([[c, -s], [s, c]])
+            n_segments = 145 // angle_deg
+
+            bottom_line *= screen_scale
+            x = bottom_line[0] - bottom_line[1]
+            x = x[:, None]
+
+            for i in range(n_segments):
+                x_new = rotation_matrix @ x
+                pygame.draw.aaline(screen, (0, 0, 255), bottom_line[1] + x[:, 0], bottom_line[1] + x_new[:, 0])
+                x = x_new
+
 
     box_size = 100
     screen_scale = 8
@@ -137,7 +200,10 @@ def main(track_name: str, save_name: str):
     sprites = pygame.sprite.Group(car)
 
     clock = pygame.time.Clock()
+    previous_key = None
     running = True 
+    show_turning_circle = False
+    show_turning_arc = False
 
     screen.fill("white")
     draw_track(inner_line, outer_line, screen, screen_scale)
@@ -167,6 +233,18 @@ def main(track_name: str, save_name: str):
         if keys[pygame.K_RIGHT]:
             agent.turn_left()
 
+        if keys[pygame.K_t]:
+            if previous_key != pygame.K_t:
+                show_turning_circle = not show_turning_circle
+            previous_key = pygame.K_t
+
+        elif keys[pygame.K_a]:
+            if previous_key != pygame.K_a:
+                show_turning_arc = not show_turning_arc
+            previous_key = pygame.K_a
+        else:
+            previous_key = None
+        
         agent.limit_speeds()
         agent.move()
 
@@ -188,35 +266,11 @@ def main(track_name: str, save_name: str):
             gfxdraw.filled_circle(screen, *circle_xy, 2, (255, 0, 0))
             gfxdraw.aacircle(screen, *circle_xy, 2, (255, 0, 0))
 
-        total_angle = agent.angle + agent.turning_angle
-        top_vector = box_size * (np.array([-math.sin(total_angle), math.cos(total_angle)]))
-    
-        bottom_line = car_bounds[0:2]
-
-        if agent.turning_angle < 0:
-            bottom_line = bottom_line[::-1]
-            top_vector *= -1
-
-        top_line = car_bounds[6:8]
-        top_line[0] = top_line.mean(axis=0)
-        top_line[1] = top_line[0] + top_vector
-        bottom_vector = box_size * (bottom_line[0] - bottom_line[1])
-        bottom_line[1] = bottom_line[0] + bottom_vector
-
-        top_distance = line_intersect_distance(top_line[0], top_line[1], bottom_line[0], bottom_line[1])
-        bottom_distance = line_intersect_distance(bottom_line[0], bottom_line[1], top_line[0], top_line[1])
-        top_line[1] = top_line[0] + top_distance * top_vector
-        bottom_line[1] = bottom_line[0] + bottom_distance * bottom_vector
-
-        if top_distance != 0:
-            pygame.draw.aalines(screen, "blue", False, bottom_line * screen_scale)
-            pygame.draw.aalines(screen, "blue", False, top_line * screen_scale)
-
-            focal_point = (top_line[1] * screen_scale).astype(int)
-            turning_radius = int(np.linalg.norm(screen_scale * bottom_distance * bottom_vector))
-            gfxdraw.filled_circle(screen, *focal_point, 4, (0, 0, 255))
-            gfxdraw.aacircle(screen, *focal_point, 4, (0, 0, 255))
-            # gfxdraw.aacircle(screen, *focal_point, turning_radius, (0, 0, 255, 120))
+        if show_turning_circle:
+            plot_turning_circle()
+        
+        if show_turning_arc:
+            plot_arc()
         
         rect_x1 = screen_x1
         rect_width = screen_x2 - screen_x1
