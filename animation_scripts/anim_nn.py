@@ -30,7 +30,7 @@ class DrawNet(Scene):
         self.play(*[FadeIn(neuron) for neuron in neurons[0]], run_time=1)
         self.wait(2)
 
-        in_features = [r"d_{-72}", r"d_{-36}", r"d_{0}", r"d_{36}", r"d_{72}", r"v", r"\theta_{\text{wheels}}"]
+        in_features = [r"d_{-72}", r"d_{-36}", r"d_{0}", r"d_{36}", r"d_{72}", r"\theta_{\text{wheels}}", r"v"]
         in_features = [MathTex(feat, font_size=30) for feat in in_features]
         x = neurons_x[0] - 1.5
         x_start = x + 0.4
@@ -147,4 +147,5 @@ class DrawNet(Scene):
             *[FadeIn(neuron) for neuron_collection in neurons for neuron in neuron_collection]
         )
 
-        self.wait(2)
+        self.wait(6)
+        self.play(*[FadeOut(mob) for mob in self.mobjects])

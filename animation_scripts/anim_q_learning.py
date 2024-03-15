@@ -5,7 +5,7 @@ from typing import List
 
 class DrawEquation(Scene):
     def construct(self):
-        rl_text = Tex("Q-learning: The Bellman equation", font_size=40).move_to([0, 3, 0])
+        rl_text = MathTex(r"\text{Q-learning: }", r"\text{The Bellman equation}", font_size=40).move_to([0, 3, 0])
         self.eq_texts = []
         eq_pos = [0, 2, 0]
         self.eq_texts.append(MathTex(
@@ -125,11 +125,16 @@ class DrawEquation(Scene):
             r")\right)^2",
             font_size=30
         ).move_to(loss_pos)
+
         self.play(ReplacementTransform(loss, loss2), run_time=0)
         self.play(TransformMatchingTex(loss2, new_loss))
         self.wait(5)
+
+        new_rl_text = MathTex(r"\text{Q-learning: }", r"\text{$\epsilon$-greedy policy}", font_size=40).move_to([0, 3, 0])
         self.play(
-            *[FadeOut(mob) for mob in self.mobjects], run_time=1
+            *[FadeOut(mob) for mob in self.mobjects], 
+            TransformMatchingTex(rl_text, new_rl_text), 
+            run_time=1
         )
 
     def append_text(self, tex_list: List[str], pos: np.ndarray = [0, 2, 0]):
