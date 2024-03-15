@@ -11,77 +11,12 @@ from collision_handling import get_lidar_lines, line_intersect_distance
 import numpy as np
 import pygame
 from pygame import Surface
-from pygame.math import Vector2
 from pygame import gfxdraw
-from pygame_widgets.slider import Slider
-import pygame_widgets
 import argparse
 import math
-from time import perf_counter
-from typing import List
-from matplotlib.cm import get_cmap
-from numba import njit
+from game_utils import Car, Sliders, draw_track
 
 
-class Car(pygame.sprite.Sprite):
-    def __init__(self, x: int, y: int, downscale: int = 20) -> None:
-        super().__init__()
-        
-        car_image = pygame.image.load('sprites/car_blue.png')
-        width, height = car_image.get_width() // downscale, car_image.get_height() // downscale
-        self.width = height
-        self.length = width
-        self.base_image = pygame.transform.scale(car_image, (width, height)).convert_alpha()
-        self.image = self.base_image
-        self.rect = self.base_image.get_rect()
-        self.offset = Vector2(self.length / 2, 0)
-        self.x = x
-        self.y = y
-    
-    def set_pos(self, position: np.ndarray):
-        self.rect.centerx = position[0]
-        self.rect.centery = position[1]
-
-    def update(self, position: np.ndarray, angle: float):
-        self.rotate(angle)
-        self.set_pos(position)
-
-    def rotate(self, angle: float):
-        pi = np.pi
-        angle_degrees = angle / pi * 180
-        self.image = pygame.transform.rotate(self.base_image, (-angle_degrees))
-        offset_rotated = self.offset.rotate(angle_degrees)
-        self.rect = self.image.get_rect(center=offset_rotated)
-
-
-def draw_track(inner_track: np.ndarray,
-               outer_track: np.ndarray,
-               screen: Surface,
-               scale: float,
-               fill_color: tuple = (190, 190, 190)):
-    
-    inner_track_scaled = (inner_track * scale).astype('intc')
-    outer_track_scaled = (outer_track * scale).astype('intc')
-
-    # Filling the track 
-    for i in np.arange(inner_track.shape[0] - 1):
-        gfxdraw.filled_trigon(screen, 
-                              *inner_track_scaled[i], 
-                              *inner_track_scaled[i + 1], 
-                              *outer_track_scaled[i], 
-                              fill_color)
-
-        gfxdraw.filled_trigon(screen, 
-                              *outer_track_scaled[i], 
-                              *outer_track_scaled[i + 1], 
-                              *inner_track_scaled[i + 1], 
-                              fill_color)
-
-    # Drawing track outline
-    pygame.draw.aalines(screen, 'black', False, inner_track_scaled)
-    pygame.draw.aalines(screen, 'black', False, outer_track_scaled)
-
-    
 def draw_network(x_vals: np.ndarray, 
                  y_vals: list,
                  node_vals: list,

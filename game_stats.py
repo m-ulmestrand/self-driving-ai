@@ -19,6 +19,42 @@ from game_utils import Car, draw_track
 def text(s: str, font: pygame.font.Font) -> pygame.Surface:
     return font.render(s, True, (0, 0, 0))
 
+
+def draw_rewards(
+    screen: pygame.Surface, 
+    x1: int, 
+    x2: int, 
+    y1: int, 
+    y2: int, 
+    rewards: np.ndarray, 
+    has_collided: bool,
+    reward_max: float = 1.0,
+    n_rewards: int = 1000
+):
+    black = (0, 0, 0)
+    y_mid = (y2 + y1) // 2
+    y_diff = (y2 - y1) // 2
+    pos1 = np.array([x1, y1])
+    pos2 = np.array([x1, y2])
+    pygame.draw.line(screen, black, pos1, pos2, width=3)
+
+    pos1 = np.array([x1, y_mid])
+    pos2 = np.array([x2, y_mid])
+    pygame.draw.line(screen, black, pos1, pos2, width=3)
+    
+    if not has_collided:
+        rewards = rewards[rewards > 0]
+
+    if rewards.size > 2:
+        x = np.linspace(x1, x2, n_rewards)[:rewards.size - 1]
+        r = rewards[:rewards.size - 1, None]
+        if has_collided:
+            r[-1] = -1
+
+        r = np.append(x[:, None], r[:rewards.size - 1] * y_diff / reward_max + y_mid, axis=1)
+        pygame.draw.aalines(screen, black, closed=False, points=r)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Drive the car yourself."
@@ -33,13 +69,29 @@ def parse_args():
 
     parser.add_argument(
         "--save-name",
-        default="default_name",
+        default="default_stats",
         type=str
+    )
+
+    parser.add_argument(
+        "--agent-name",
+        required=False,
+        type=str,
+        default=None,
+        help="Name of the pretrained agent."
+    )
+
+    parser.add_argument(
+        "--generation-length",
+        required=False,
+        type=int,
+        default=1000,
     )
 
     return parser.parse_args()
 
-def main(track_name: str, save_name: str):
+
+def main(track_name: str, save_name: str, agent_name: str, generation_length: int):
 
     def get_wheel_lines():
         total_angle = agent.angle + agent.turning_angle
@@ -103,35 +155,47 @@ def main(track_name: str, save_name: str):
                 pygame.draw.aaline(screen, (0, 0, 255), bottom_line[1] + x[:, 0], bottom_line[1] + x_new[:, 0])
                 x = x_new
 
-
     box_size = 100
-    screen_scale = 8
+    screen_scale = 5
 
     turning_speed = 0.02
     drift = 0.
     acc = 0.01
 
-    agent = RacingAgent(
-        box_size=box_size, 
-        buffer_size=1, 
-        device="cpu",
-    )
+    model_params = {
+        "box_size": box_size,
+        "buffer_size": 1,
+        "device": "cpu",
+        "generation_length": generation_length
+    }
 
-    agent.store_track(track_name)
-    agent.turning_speed=turning_speed
-    agent.drift=drift
-    agent.acc=acc 
-    agent.speed_lower *= 0.1
-    agent.velocity *= 0.01
-    agent.dec = 0.97
+    if agent_name is not None:
+        model_config = RacingAgent.parse_json_config(agent_name)
+        model_params["seq_length"] = model_config["seq_length"]
+        agent = RacingAgent(**model_params)
+        agent.load_network(agent_name)
+        agent.set_agent_params(model_config)
+        agent.store_track(track_name)
+    else:
+        agent = RacingAgent(**model_params)
+        agent.store_track(track_name)
+        agent.turning_speed=turning_speed
+        agent.drift=drift
+        agent.acc=acc 
+        agent.speed_lower *= 0.1
+        agent.velocity *= 0.01
+        agent.dec = 0.97
 
     pygame.init()
     screen_x1 = box_size * screen_scale
     screen_x2 = int(1.3 * screen_x1)
+    screen_x3 = 2 * screen_x2
     screen_y = box_size * screen_scale
-    slider_width = (screen_x2 - screen_x1) * 0.9
-    screen = pygame.display.set_mode((screen_x2, screen_y))
-    recorder = ScreenRecorder(screen_x2, screen_y, 60, "./pygame_recordings/" + save_name + ".avi")
+    margin = screen_y - screen_y * 0.9
+    collide_counter = 0
+
+    screen = pygame.display.set_mode((screen_x3, screen_y))
+    recorder = ScreenRecorder(screen_x3, screen_y, 60, "./pygame_recordings/" + save_name + ".avi")
 
     inner_line = np.load(f"tracks/{track_name}_inner_bound.npy")
     outer_line = np.load(f"tracks/{track_name}_outer_bound.npy")
@@ -154,9 +218,11 @@ def main(track_name: str, save_name: str):
     height = 30
     font = pygame.font.Font(r"C:\Windows\Fonts\timesi.ttf", height)
     texts = [text(s, font) for s in ['v', 'θ', "d₋₂", "d₋₁", "d₀", "d₁", "d₂"]]
+    y_label = text("R(t)", font)
+    x_label = text("t", font)
     lidar_order = [0, 1, 2, 3, 8, 9, 4, 5, 6, 7]
 
-    while running:
+    while agent.current_step < generation_length and running:
         events = pygame.event.get()
         for event in events:
             if event.type == pygame.QUIT:
@@ -164,14 +230,20 @@ def main(track_name: str, save_name: str):
                 exit()
         
         keys = pygame.key.get_pressed() 
-        if keys[pygame.K_UP]:
-            agent.accelerate()
-        if keys[pygame.K_DOWN]:
-            agent.decelerate()
-        if keys[pygame.K_LEFT]:
-            agent.turn_right()
-        if keys[pygame.K_RIGHT]:
-            agent.turn_left()
+
+        if agent_name is not None:
+            agent.choose_action(epsilon=0.)
+        else:
+            if keys[pygame.K_UP]:
+                agent.accelerate()
+            if keys[pygame.K_DOWN]:
+                agent.decelerate()
+            if keys[pygame.K_LEFT]:
+                agent.turn_right()
+            if keys[pygame.K_RIGHT]:
+                agent.turn_left()
+            agent.limit_speeds()
+            agent.move()
 
         if keys[pygame.K_t]:
             if previous_key != pygame.K_t:
@@ -184,11 +256,17 @@ def main(track_name: str, save_name: str):
             previous_key = pygame.K_a
         else:
             previous_key = None
-        
-        agent.limit_speeds()
-        agent.move()
 
         xs, ys, car_bounds, car_collides = get_lidar_lines(agent)
+
+        if car_collides:
+            collide_counter += 1
+        else: 
+            collide_counter = 0
+
+        agent.get_features()
+        agent.reward_continuous()
+        rewards = agent.rewards.numpy().flatten()
         agent.current_step += 1
         
         lidar_lines = np.vstack((xs, ys)).T
@@ -197,6 +275,16 @@ def main(track_name: str, save_name: str):
 
         screen.fill("white")
         screen.blit(track_background, track_rect)
+        draw_rewards(
+            screen, 
+            screen_x2, 
+            screen_x3, 
+            screen_y - margin, 
+            margin, 
+            rewards[:agent.current_step], 
+            car_collides, 
+            n_rewards=generation_length
+        )
         scaled_lidar_lines = screen_scale * lidar_lines
         pygame.draw.aalines(screen, "black", False, car_bounds * screen_scale)
         pygame.draw.aalines(screen, "red", False, scaled_lidar_lines)
@@ -225,11 +313,14 @@ def main(track_name: str, save_name: str):
 
         ordered_lidar_lines = lidar_lines[lidar_order]
         for count, i in enumerate(range(1, lidar_lines.shape[0], 2), 2):
-            line_width = np.linalg.norm((ordered_lidar_lines[i] - ordered_lidar_lines[i - 1]) / box_size * rect_width)
+            line_width = np.linalg.norm((ordered_lidar_lines[i] - ordered_lidar_lines[i - 1]) / (box_size * np.sqrt(2)) * rect_width)
             pygame.draw.rect(screen, color, pygame.Rect(rect_x1, rect_y1 + count * height, line_width, height), border_radius=border_radius)
 
         for i, txt in enumerate(texts):
             screen.blit(txt, (rect_x1, rect_y1 + height * i))
+        
+        screen.blit(x_label, (screen_x3 - screen_x2 // 2, screen_y // 2 + 20))
+        screen.blit(y_label, (screen_x2, 10))
 
         sprites.update(scaled_center, agent.angle)
         sprites.draw(screen)
@@ -240,9 +331,13 @@ def main(track_name: str, save_name: str):
         recorder.capture_frame(screen)
         clock.tick(60)
 
+        if collide_counter > 0:
+            running = False
+            clock.tick(0.5)
+
     recorder.end_recording()
     # pygame.quit()
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args.track_name, args.save_name)
+    main(args.track_name, args.save_name, args.agent_name, args.generation_length)
