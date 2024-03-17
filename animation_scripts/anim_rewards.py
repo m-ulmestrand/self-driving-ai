@@ -5,7 +5,14 @@ from typing import Tuple
 
 class DrawRewards(Scene):
     def construct(self):
-        ax = Axes(x_range=(0, 20), y_range=(-2, 2))
+        ax = Axes(
+            x_range=(0, 20, 1), 
+            y_range=(-2, 2, 0.5),
+            axis_config={"include_numbers": False}
+        )
+
+        x_label = ax.get_x_axis_label(MathTex("t"))
+        y_label = ax.get_y_axis_label(MathTex(r"R(t)"))
         reward_pts = np.array([1, 3, 6, 7, 9, 14, 18])
         x, y = self.get_reward(reward_pts, self.fill_rewards1)
         where_rewards = np.logical_and(y != 0, y > 0)
@@ -52,6 +59,7 @@ class DrawRewards(Scene):
         brace2 = BraceBetweenPoints(p1, p2)
         brace3 = BraceBetweenPoints(ax.c2p(reward_pts[0], 0, 0), p3)
         brace4 = BraceBetweenPoints(ax.c2p(reward_pts[1], 0, 0), p4)
+        arrow = Arrow(ax.c2p(15, -1, 0), ax.c2p(18, -1, 0))
 
         d1 = int(reward_pts[0] - 0)
         d2 = int(reward_pts[1] - reward_pts[0])
@@ -60,27 +68,31 @@ class DrawRewards(Scene):
         t2 = Text(f"{d2}",).scale(0.5).next_to(brace2, 0.5 * DOWN)
         t3 = Text(f"1/{d1}").scale(0.5).next_to(brace3, 0.5 * RIGHT)
         t4 = Text(f"1/{d2}").scale(0.5).next_to(brace4, 0.5 * RIGHT)
+        t5 = Text("Agent crashes").scale(0.5).next_to(arrow, 0.5 * LEFT)
 
-        self.play(Create(ax))
-        self.play(Create(vertex_graph1["vertex_dots"]))
+        self.play(Write(ax), Write(x_label), Write(y_label))
+        self.play(Write(vertex_graph1["vertex_dots"]))
         self.add(circle1)
         self.play(Transform(vertex_graph1["vertex_dots"], vertex_graph2["vertex_dots"]))
         self.play(Transform(circle1, circle2))
         self.wait(2)
-        self.play(Create(brace1), Create(t1))
-        self.play(Create(brace3), Create(t3))
+        self.play(Write(brace1), Write(t1))
+        self.play(Write(brace3), Write(t3))
         self.wait(1)
         self.play(FadeOut(brace1, brace3, t1, t3))
-        self.play(Create(brace2), Create(t2))
-        self.play(Create(brace4), Create(t4))
+        self.play(Write(brace2), Write(t2))
+        self.play(Write(brace4), Write(t4))
         self.wait(1)
         self.play(FadeOut(brace2, brace4, t2, t4))
-        self.play(Create(line_graph), run_time=2)
+        self.play(Write(arrow), Write(t5))
         self.wait(2)
+        self.play(FadeOut(arrow, t5))
+        self.play(Write(line_graph), run_time=2)
+        self.wait(3)
         self.play(ReplacementTransform(line_graph, line_graph2))
-        self.wait(2)
+        self.wait(3)
         self.play(ReplacementTransform(line_graph2, line_graph3))
-        self.wait(2)
+        self.wait(5)
 
         self.play(
             *[FadeOut(mob) for mob in self.mobjects], run_time=1
