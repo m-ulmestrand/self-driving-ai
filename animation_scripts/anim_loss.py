@@ -9,7 +9,7 @@ class DrawLoss(Scene):
         x_range = (-2.5, 2.5)
         y_range = (-2.5, 2.5)
         length = x_range[1] - x_range[0]
-        position1 = np.array([-3, 0, 0])
+        self.position1 = np.array([-3, 0, 0])
         position2 = np.array([3, 0, 0])
 
         n_data = 80
@@ -79,23 +79,24 @@ class DrawLoss(Scene):
         self.play(ReplacementTransform(loss_text_gradient_descent, new_text), FadeOut(gradient_descent_header))
 
         y_range2 = (-0.2, 6.0)
-        self.ax1 = self.draw_axis(x_range, y_range, length, length, position1, 'x', 'y', ORANGE)
+        self.ax1 = self.draw_axis(x_range, y_range, length, length, self.position1, 'x', 'y', ORANGE)
         self.ax2 = self.draw_axis(x_range, y_range2, length, length, position2, 'w', r"L_\text{MSE}", BLUE)
         self.wait(2)
 
         data_dots = [
-            Dot(position1 + np.array([x, y, 0]), radius=DEFAULT_DOT_RADIUS / 2) 
+            Dot(self.position1 + np.array([x, y, 0]), radius=DEFAULT_DOT_RADIUS / 2) 
             for x, y in zip(self.x_data, self.y_data)
         ]
         self.data_group = VGroup(*data_dots)
         self.data_group.set_z_index(1)
         self.play(Write(self.data_group))
 
-        self.gradient_descent(2.0, [(4, 0.92), (5, 0.2), (5, 0.1)], position1)
+        self.gradient_descent(2.0, [(4, 0.92), (5, 0.2), (5, 0.1)], self.position1)
         self.wait(5)
+
         self.play(*[FadeOut(mob) for mob in self.mobjects])
         
-    def gradient_descent(self, weight: float, steps: List[Tuple[int, float]], center: Tuple[float, float]):
+    def gradient_descent(self, weight: float, steps: List[Tuple[int, float]], center: Tuple[float, float, float]):
         error_max = 3.3
         line = self.ax1.plot(lambda x: weight * x, color=WHITE)
         line.set_z_index(2)
@@ -133,6 +134,28 @@ class DrawLoss(Scene):
                 line = new_line
                 error_group = new_error_group
             self.wait(1)
+        
+        self.wait(4)
+        bias = 1
+        new_line = self.ax1.plot(lambda x: weight * x + bias, color=WHITE)
+        new_line.set_z_index(2)
+
+        data_dots = [
+            Dot(self.position1 + np.array([x, y + bias, 0]), radius=DEFAULT_DOT_RADIUS / 2) 
+            for x, y in zip(self.x_data, self.y_data)
+        ]
+        new_data = VGroup(*data_dots)
+        new_data.set_z_index(1)
+        pos = self.position1.copy()
+        pos[1] += bias
+        new_error_bars, _, _ = self.get_error_bars(pos, weight, error_max)
+        new_error_group = VGroup(*new_error_bars)
+
+        self.play(
+            ReplacementTransform(line, new_line), 
+            ReplacementTransform(self.data_group, new_data),
+            ReplacementTransform(error_group, new_error_group)
+        )
 
     def draw_axis(
         self,
