@@ -51,9 +51,6 @@ def main(agent_name: str, track_name: str, save_name: str):
     screen_scale = 10
 
     max_turn_angle = math.pi / 4
-    turning_speed = 0.125
-    drift = 0.0
-    acc = 0.005
     model_config = RacingAgent.parse_json_config(agent_name)
 
     agent = RacingAgent(
@@ -67,9 +64,6 @@ def main(agent_name: str, track_name: str, save_name: str):
     agent.store_track(track_name)
     agent.load_network(model_config=model_config)
     agent.set_agent_params(model_config)
-    agent.turning_speed=turning_speed
-    agent.drift=drift
-    agent.acc=acc 
 
     race_cars = [agent]
     n_cars = 5
@@ -105,7 +99,7 @@ def main(agent_name: str, track_name: str, save_name: str):
         car_sprites[i] = Car(race_car.position[0], race_car.position[1], downscale=(downscale[i] // screen_scale), car_path=car_types[i])
     
     sprites = pygame.sprite.Group(car_sprites)
-    sliders = Sliders(screen, screen_x1, slider_width, 20, drift=drift, acc=acc, turn=max_turn_angle)
+    sliders = Sliders(screen, screen_x1, slider_width, 20, drift=model_config["drift"], acc=model_config["acceleration"], turn=max_turn_angle)
 
     clock = pygame.time.Clock()
     running = True 
